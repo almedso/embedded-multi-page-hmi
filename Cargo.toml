@@ -6,3 +6,7 @@ license = "MIT"
 
 
 [dependencies]
+
+[dev-dependencies]
+rawkey = "0.1.3"
+

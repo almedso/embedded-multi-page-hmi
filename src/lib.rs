@@ -90,8 +90,14 @@
 //!   * activate items with `action` interaction
 //!   * *Go back to home (info) page* could be item to select and activate
 
+//use core::mem;
+use std::mem;
+
 /// Possible Interactions derived from the input
+#[derive(Debug, Clone, Copy)]
 pub enum Interaction {
+    SystemStart, // generic to start the HMI (not user selected)
+    SystemStop,  // stop the HMI (not user selected)
     Action,
     Next,
     Previous,
@@ -100,10 +106,10 @@ pub enum Interaction {
 }
 
 /// Possible Interactions derived from the input
-pub enum DispatchResult<T> {
+pub enum DispatchResult<P> {
     Handled,
     Ignored,
-    Navigate(Box<dyn PageInterface<T>>),
+    Navigate(P),
 }
 
 /// Data structures that implement the Page trait are Pages and can be handled
@@ -113,7 +119,7 @@ pub trait PageInterface<D> {
     fn display(&self, display_driver: &mut D);
 
     /// Handle an interaction internally
-    fn dispatch(&mut self, _interaction: Interaction) -> DispatchResult<D> {
+    fn dispatch(&mut self, _interaction: Interaction) -> DispatchResult<Box<dyn PageInterface<D>>> {
         DispatchResult::Ignored
     }
 
@@ -121,21 +127,201 @@ pub trait PageInterface<D> {
     fn get_life_time_in_ms(&self) -> Option<u16> {
         Option::None
     }
+
+    /// Every page has a title; default is empty String
+    fn title(&self) -> String {
+        "".to_string()
+    }
+
+    // /// Register the next page on the same level
+    // fn register_next(&mut self, _page: Box<dyn PageInterface<D>>);
+
+    // /// Register the a sub page there could be just one sub page
+    // fn register_sub(&mut self, _page: Box<dyn PageInterface<D>>);
 }
 
 /// Implementation of the inter-page interaction model
 pub struct PageManager<P: PageInterface<D>, D> {
     display: D,
-    home: P,
+    page: P,
+    next: Link<P>,
+    previous: Link<P>,
+    startup: Option<P>,
+    shutdown: Option<P>,
+}
+
+type Link<P> = Option<Box<Node<P>>>;
+
+struct Node<P> {
+    page: P,
+    link: Link<P>,
+}
+
+impl<P> Node<P> {
+    fn new(page: P) -> Self {
+        Node::<P> { page, link: None }
+    }
 }
 
 impl<P: PageInterface<D>, D> PageManager<P, D> {
     pub fn new(display: D, home: P) -> Self {
-        PageManager { display, home }
+        PageManager::<P, D> {
+            display,
+            page: home,
+            next: None,
+            previous: None,
+            startup: None,
+            shutdown: None,
+        }
     }
 
     pub fn update(&mut self) {
-        self.home.display(&mut self.display);
+        self.page.display(&mut self.display);
+    }
+
+    pub fn register(&mut self, page: P) {
+        self.push_next(page);
+        self.activate_next();
+    }
+
+    pub fn register_startup(&mut self, page: P) {
+        self.startup = Some(page);
+    }
+
+    pub fn register_shutdown(&mut self, page: P) {
+        self.shutdown = Some(page);
+    }
+
+    fn push_next(&mut self, page: P) {
+        let new_node = Box::new(Node {
+            page: page,
+            link: self.next.take(),
+        });
+        self.next = Some(new_node);
+    }
+
+    fn push_previous(&mut self, page: P) {
+        let new_node = Box::new(Node {
+            page: page,
+            link: self.previous.take(),
+        });
+        self.previous = Some(new_node);
+    }
+
+    fn pop_next(&mut self) -> Option<P> {
+        self.next.take().map(|node| {
+            self.next = node.link;
+            node.page
+        })
+    }
+
+    fn pop_previous(&mut self) -> Option<P> {
+        self.previous.take().map(|node| {
+            self.previous = node.link;
+            node.page
+        })
+    }
+
+    fn activate_next(&mut self) -> bool {
+        match self.pop_next() {
+            None => false,
+            Some(page) => {
+                let page = mem::replace(&mut self.page, page);
+                self.push_previous(page);
+                true
+            }
+        }
+    }
+
+    fn activate_previous(&mut self) -> bool {
+        match self.pop_previous() {
+            None => false,
+            Some(page) => {
+                let page = mem::replace(&mut self.page, page);
+                self.push_next(page);
+                true
+            }
+        }
+    }
+
+    fn activate_most_previous(&mut self) {
+        while self.activate_previous() {}
+    }
+
+    fn activate_home(&mut self) {
+        self.activate_most_previous();
+    }
+
+    pub fn dispatch(&mut self, interaction: Interaction) {
+        match interaction {
+            Interaction::SystemStart => match &self.startup {
+                Some(page) => page.display(&mut self.display),
+                _ => (),
+            },
+            Interaction::SystemStop => match &self.shutdown {
+                Some(page) => page.display(&mut self.display),
+                _ => (),
+            },
+            Interaction::Next => {
+                self.activate_next();
+                self.page.display(&mut self.display);
+            }
+            Interaction::Previous => {
+                self.activate_previous();
+                self.page.display(&mut self.display);
+            }
+            Interaction::Home => {
+                self.activate_home();
+                self.page.display(&mut self.display);
+            }
+            Interaction::Action => {
+                self.update();
+            }
+            _ => {}
+        };
+    }
+}
+
+impl<P: PageInterface<D>, D> Drop for PageManager<P, D> {
+    fn drop(&mut self) {
+        // forward list
+        let mut cur_link = self.next.take();
+        while let Some(mut boxed_node) = cur_link {
+            cur_link = boxed_node.link.take();
+        }
+        // backward list
+        let mut cur_link = self.previous.take();
+        while let Some(mut boxed_node) = cur_link {
+            cur_link = boxed_node.link.take();
+        }
+    }
+}
+
+pub struct Iter<'a, P> {
+    next: Option<&'a Node<P>>,
+}
+
+impl<P: PageInterface<D>, D> PageManager<P, D> {
+    pub fn forward_iter<'a>(&'a self) -> Iter<'a, P> {
+        Iter {
+            next: self.next.as_deref(),
+        }
+    }
+
+    pub fn backward_iter<'a>(&'a self) -> Iter<'a, P> {
+        Iter {
+            next: self.previous.as_deref(),
+        }
+    }
+}
+
+impl<'a, P> Iterator for Iter<'a, P> {
+    type Item = &'a P;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|node| {
+            self.next = node.link.as_deref();
+            &node.page
+        })
     }
 }
 

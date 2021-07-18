@@ -1,4 +1,48 @@
 use embedded_multi_page_hmi::*;
+use rawkey::{KeyCode, RawKey};
+
+
+struct Input;
+
+impl Iterator for Input {
+    type Item = Interaction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let rawkey = RawKey::new();
+        let mut selected_action: Option<Self::Item> =  None;
+        let mut previous_selected_action: Option<Self::Item> = None;
+
+        loop {
+            if rawkey.is_pressed(KeyCode::Escape) {
+                return None;
+            }
+            if rawkey.is_pressed(KeyCode::UpArrow) {
+                selected_action = Some(Interaction::Previous);
+            }
+            if rawkey.is_pressed(KeyCode::DownArrow) {
+                selected_action = Some(Interaction::Next);
+            }
+            if rawkey.is_pressed(KeyCode::LeftArrow) {
+                selected_action = Some(Interaction::Back);
+            }
+            if rawkey.is_pressed(KeyCode::RightArrow) {
+                selected_action = Some(Interaction::Action);
+            }
+
+            // previous_selected_action = selected_action;
+            match selected_action {
+                None => {
+                    match previous_selected_action {
+                        None => { continue; },
+                        Some(x) =>  { previous_selected_action = None; return Some(x); },
+                    }
+                }
+                Some(x) => { previous_selected_action = Some(x); selected_action = None; },
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    }
+}
 
 struct TerminalDisplay {
     len: usize,
@@ -43,7 +87,6 @@ impl Page {
 impl PageInterface<TerminalDisplay> for Page {
     fn display(&self, display_driver: &mut TerminalDisplay) {
         display_driver.update(&self.message);
-        display_driver.update(&"--> Finish".to_string());
     }
 }
 
@@ -51,16 +94,16 @@ fn main() {
     let home = Page::new("Home message");
     let display = TerminalDisplay { len: 0 };
     let mut m = PageManager::new(display, home);
-    m.update();
-    println!();
+    let mut input = Input;
 
-    // let startup = Page::new_message("Welcome message");
-    // let shutdown = Page::new_message("Bye bye message");
 
-    // // Optional cannot be reached by external action - called when entering async loop
-    // m.register_startup(startup);
-    // // Optional cannot be reached by external action - called when leaving the async loop
-    // m.register_shutdown(shutdown);
+    let startup = Page::new("Welcome message");
+    let shutdown = Page::new("Bye bye message");
+
+    // Optional cannot be reached by external action - called when entering async loop
+    m.register_startup(startup);
+    // Optional cannot be reached by external action - called when leaving the async loop
+    m.register_shutdown(shutdown);
 
     // Additional pages reachable by action button
 
@@ -69,6 +112,8 @@ fn main() {
     // m.register_action(&home, &clock);
     // m.register_action(&clock, &temp);
     // m.register_action(&temp, &home);
+
+    m.dispatch(Interaction::SystemStart);
 
     // input = Button::Action:todo();
     // async fn page_output() {
@@ -80,4 +125,16 @@ fn main() {
     //     m.shutdown().await;
     // }
     // nb(page_output().await);
+    m.update();  // show home page
+    loop {
+        match input.next() {
+            None => break,
+            Some(interaction) => match interaction {
+                Interaction::Action => m.update(),
+                _ => print!("**"),
+            },
+        }
+    }
+    println!();
+
 }
