@@ -5,11 +5,12 @@ capabilities is available.
 
 ## TODO
 
-0. Rework use cases and scenarios
-1. Implement Interfaces / traits
-   * Tests
-2. Improve Documentation
-   * Write example on host
-3. Update README for publishing
-   * Publish
-4. github actions
+* Update documenttion
+* implement page list --> tree
+* Navigation list pages
+* Auto page update
+* check async alternative
+* Selection input/ model update  e.g. numbers,  words, etc.
+* Update README for publishing
+  * Publish
+* github actions
