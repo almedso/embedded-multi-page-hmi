@@ -90,8 +90,12 @@
 //!   * activate items with `action` interaction
 //!   * *Go back to home (info) page* could be item to select and activate
 
-//use core::mem;
-use std::mem;
+// later on this should be a no_std to run on embedded - still we need a Box type
+// that is not available easily  on no_std
+//#![no_std]
+// use alloc::boxed::Box;
+
+use core::{mem};
 
 /// Possible Interactions derived from the input
 #[derive(Debug, Clone, Copy)]
@@ -129,43 +133,35 @@ pub trait PageInterface<D> {
     }
 
     /// Every page has a title; default is empty String
-    fn title(&self) -> String {
-        "".to_string()
+    fn title(&self) -> &str {
+        ""
     }
-
-    // /// Register the next page on the same level
-    // fn register_next(&mut self, _page: Box<dyn PageInterface<D>>);
-
-    // /// Register the a sub page there could be just one sub page
-    // fn register_sub(&mut self, _page: Box<dyn PageInterface<D>>);
 }
 
 /// Implementation of the inter-page interaction model
-pub struct PageManager<P: PageInterface<D>, D> {
+///
+/// The PageManager is responsible for switching among pages while
+/// pages do not know about other pages.
+/// The PageManager also dispatches events and updates the current page.
+pub struct PageManager<D> {
     display: D,
-    page: P,
-    next: Link<P>,
-    previous: Link<P>,
-    startup: Option<P>,
-    shutdown: Option<P>,
+    page: Box<dyn PageInterface<D>>,
+    next: Link<Box<dyn PageInterface<D>>>,
+    previous: Link<Box<dyn PageInterface<D>>>,
+    startup: Option<Box<dyn PageInterface<D>>>,
+    shutdown: Option<Box<dyn PageInterface<D>>>,
 }
 
-type Link<P> = Option<Box<Node<P>>>;
+type Link<T> = Option<Box<Node<T>>>;
 
-struct Node<P> {
-    page: P,
-    link: Link<P>,
+struct Node<T> {
+    page: T,
+    link: Link<T>,
 }
 
-impl<P> Node<P> {
-    fn new(page: P) -> Self {
-        Node::<P> { page, link: None }
-    }
-}
-
-impl<P: PageInterface<D>, D> PageManager<P, D> {
-    pub fn new(display: D, home: P) -> Self {
-        PageManager::<P, D> {
+impl<D> PageManager<D> {
+    pub fn new(display: D, home: Box<dyn PageInterface<D>>) -> Self {
+        PageManager::<D> {
             display,
             page: home,
             next: None,
@@ -179,20 +175,20 @@ impl<P: PageInterface<D>, D> PageManager<P, D> {
         self.page.display(&mut self.display);
     }
 
-    pub fn register(&mut self, page: P) {
+    pub fn register(&mut self, page: Box<dyn PageInterface<D>>) {
         self.push_next(page);
         self.activate_next();
     }
 
-    pub fn register_startup(&mut self, page: P) {
+    pub fn register_startup(&mut self, page: Box<dyn PageInterface<D>>) {
         self.startup = Some(page);
     }
 
-    pub fn register_shutdown(&mut self, page: P) {
+    pub fn register_shutdown(&mut self, page: Box<dyn PageInterface<D>>) {
         self.shutdown = Some(page);
     }
 
-    fn push_next(&mut self, page: P) {
+    fn push_next(&mut self, page: Box<dyn PageInterface<D>>) {
         let new_node = Box::new(Node {
             page: page,
             link: self.next.take(),
@@ -200,7 +196,7 @@ impl<P: PageInterface<D>, D> PageManager<P, D> {
         self.next = Some(new_node);
     }
 
-    fn push_previous(&mut self, page: P) {
+    fn push_previous(&mut self, page: Box<dyn PageInterface<D>>) {
         let new_node = Box::new(Node {
             page: page,
             link: self.previous.take(),
@@ -208,14 +204,14 @@ impl<P: PageInterface<D>, D> PageManager<P, D> {
         self.previous = Some(new_node);
     }
 
-    fn pop_next(&mut self) -> Option<P> {
+    fn pop_next(&mut self) -> Option<Box<dyn PageInterface<D>>> {
         self.next.take().map(|node| {
             self.next = node.link;
             node.page
         })
     }
 
-    fn pop_previous(&mut self) -> Option<P> {
+    fn pop_previous(&mut self) -> Option<Box<dyn PageInterface<D>>> {
         self.previous.take().map(|node| {
             self.previous = node.link;
             node.page
@@ -282,7 +278,7 @@ impl<P: PageInterface<D>, D> PageManager<P, D> {
     }
 }
 
-impl<P: PageInterface<D>, D> Drop for PageManager<P, D> {
+impl<D> Drop for PageManager<D> {
     fn drop(&mut self) {
         // forward list
         let mut cur_link = self.next.take();
@@ -301,22 +297,22 @@ pub struct Iter<'a, P> {
     next: Option<&'a Node<P>>,
 }
 
-impl<P: PageInterface<D>, D> PageManager<P, D> {
-    pub fn forward_iter<'a>(&'a self) -> Iter<'a, P> {
+impl<D> PageManager<D> {
+    pub fn forward_iter<'a>(&'a self) -> Iter<'a, Box<dyn PageInterface<D>>> {
         Iter {
             next: self.next.as_deref(),
         }
     }
 
-    pub fn backward_iter<'a>(&'a self) -> Iter<'a, P> {
+    pub fn backward_iter<'a>(&'a self) -> Iter<'a, Box<dyn PageInterface<D>>> {
         Iter {
             next: self.previous.as_deref(),
         }
     }
 }
 
-impl<'a, P> Iterator for Iter<'a, P> {
-    type Item = &'a P;
+impl<'a, D> Iterator for Iter<'a, Box<dyn PageInterface<D>>> {
+    type Item = &'a Box<dyn PageInterface<D>>;
     fn next(&mut self) -> Option<Self::Item> {
         self.next.map(|node| {
             self.next = node.link.as_deref();

@@ -73,13 +73,13 @@ mod mocks {
     }
 
     impl PageInterface<DisplayDriverStub> for PageMock {
-        fn display(&self, display_driver: &mut DisplayDriverStub) {}
+        fn display(&self, _display_driver: &mut DisplayDriverStub) {}
     }
 
-    pub fn check_page_iteration<'a, P: PageInterface<DisplayDriverMock>>(
+    pub fn check_page_iteration<'a>(
         context: &str,
         expected: Vec<String>,
-        iterator: Iter<'a, P>,
+        iterator: Iter<'a, Box<dyn PageInterface<DisplayDriverMock>>>,
     ) {
         let mut d = DisplayDriverMock::new(context, expected);
         for i in iterator {
@@ -98,7 +98,7 @@ mod page_manager {
         let foo = PageMock::new("Foo");
         let mut d = DisplayDriverMock::default("update");
         d.expect("Foo");
-        let mut m = PageManager::new(d, foo);
+        let mut m = PageManager::new(d, Box::new(foo));
         m.update();
     }
 
@@ -119,8 +119,8 @@ mod page_manager {
         d.expect("bar");
         d.expect("foo");
         d.expect("foo");
-        let mut m = PageManager::new(d, foo);
-        m.register(bar);
+        let mut m = PageManager::new(d, Box::new(foo));
+        m.register(Box::new(bar));
         m.update();
         m.dispatch(Interaction::Next);
         m.dispatch(Interaction::Previous);
@@ -165,10 +165,10 @@ mod page_manager {
         d.expect("Home");
         d.expect("Home");
 
-        let mut m = PageManager::new(d, home);
-        m.register(foo);
-        m.register(bar);
-        m.register(baz);
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register(Box::new(foo));
+        m.register(Box::new(bar));
+        m.register(Box::new(baz));
         m.update();
         m.dispatch(Interaction::Home);
 
@@ -206,14 +206,14 @@ mod page_manager {
         d.expect("foo");
         d.expect("baz");
 
-        let mut m = PageManager::new(d, home);
+        let mut m = PageManager::new(d, Box::new(home));
 
         m.update();
-        m.register(foo);
+        m.register(Box::new(foo));
         m.update();
-        m.register(bar);
+        m.register(Box::new(bar));
         m.dispatch(Interaction::Previous);
-        m.register(baz);
+        m.register(Box::new(baz));
         m.dispatch(Interaction::Previous);
         m.dispatch(Interaction::Next);
     }
@@ -224,11 +224,11 @@ mod page_manager {
         let foo = PageMock::new("foo");
         let bar = PageMock::new("bar");
         let baz = PageMock::new("baz");
-        let mut d = DisplayDriverMock::new("Update check", expect("baz"));
-        let mut m = PageManager::new(d, home);
-        m.register(foo);
-        m.register(bar);
-        m.register(baz);
+        let d = DisplayDriverMock::new("Update check", expect("baz"));
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register(Box::new(foo));
+        m.register(Box::new(bar));
+        m.register(Box::new(baz));
 
         m.update();
 
@@ -246,11 +246,11 @@ mod page_manager {
         let foo = PageMock::new("foo");
         let bar = PageMock::new("bar");
         let baz = PageMock::new("baz");
-        let mut d = DisplayDriverMock::new("Update check", expect("baz bar"));
-        let mut m = PageManager::new(d, home);
-        m.register(foo);
-        m.register(bar);
-        m.register(baz);
+        let d = DisplayDriverMock::new("Update check", expect("baz bar"));
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register(Box::new(foo));
+        m.register(Box::new(bar));
+        m.register(Box::new(baz));
         m.update();
         m.activate_previous();
         m.update();
@@ -264,11 +264,11 @@ mod page_manager {
         let foo = PageMock::new("foo");
         let bar = PageMock::new("bar");
         let baz = PageMock::new("baz");
-        let mut d = DisplayDriverMock::new("Update check", expect("baz bar foo"));
-        let mut m = PageManager::new(d, home);
-        m.register(foo);
-        m.register(bar);
-        m.register(baz);
+        let d = DisplayDriverMock::new("Update check", expect("baz bar foo"));
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register(Box::new(foo));
+        m.register(Box::new(bar));
+        m.register(Box::new(baz));
         m.update();
         m.activate_previous();
         m.update();
@@ -284,11 +284,11 @@ mod page_manager {
         let foo = PageMock::new("foo");
         let bar = PageMock::new("bar");
         let baz = PageMock::new("baz");
-        let mut d = DisplayDriverMock::new("Update check", expect("baz bar foo Home"));
-        let mut m = PageManager::new(d, home);
-        m.register(foo);
-        m.register(bar);
-        m.register(baz);
+        let d = DisplayDriverMock::new("Update check", expect("baz bar foo Home"));
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register(Box::new(foo));
+        m.register(Box::new(bar));
+        m.register(Box::new(baz));
         m.update();
         m.activate_previous();
         m.update();
@@ -306,9 +306,9 @@ mod page_manager {
         let bar = PageMock::new("Bar");
         let baz = PageMock::new("Baz");
         let d = DisplayDriverStub {};
-        let mut m = PageManager::new(d, foo);
-        m.register(bar);
-        m.register(baz);
+        let mut m = PageManager::new(d, Box::new(foo));
+        m.register(Box::new(bar));
+        m.register(Box::new(baz));
         m.activate_home();
         assert!(m.activate_next(), "expected move to bar");
         assert!(m.activate_next(), "expected move to baz");
@@ -329,8 +329,8 @@ mod page_manager {
         let mut d = DisplayDriverMock::default("Start Navigation");
         d.expect("Startup");
         d.expect("Foo");
-        let mut m = PageManager::new(d, foo);
-        m.register_startup(startup);
+        let mut m = PageManager::new(d, Box::new(foo));
+        m.register_startup(Box::new(startup));
         m.dispatch(Interaction::SystemStart);
         m.dispatch(Interaction::Action);
         m.dispatch(Interaction::SystemStop);
@@ -342,8 +342,8 @@ mod page_manager {
         let mut d = DisplayDriverMock::default("Shutdown Navigation");
         d.expect("Foo");
         d.expect("Shutdown");
-        let mut m = PageManager::new(d, foo);
-        m.register_shutdown(shutdown);
+        let mut m = PageManager::new(d, Box::new(foo));
+        m.register_shutdown(Box::new(shutdown));
         m.dispatch(Interaction::SystemStart);
         m.dispatch(Interaction::Action);
         m.dispatch(Interaction::SystemStop);

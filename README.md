@@ -5,10 +5,9 @@ capabilities is available.
 
 ## TODO
 
-* Update documenttion
+* Update documentation
 * implement page list --> tree
 * Navigation list pages
-* Auto page update
 * check async alternative
 * Selection input/ model update  e.g. numbers,  words, etc.
 * Update README for publishing

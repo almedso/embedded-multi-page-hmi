@@ -6,7 +6,27 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
 use std::{thread, time};
 use termios::{Termios, TCSANOW, ECHO, ICANON, tcsetattr};
+use chrono::{DateTime, Utc};
 
+/// h1. Simulate on unix terminal
+///
+/// h2. Input is the keyboard
+///
+/// Keys are:
+/// * n - next page
+/// * p - previous page
+/// * h - home page
+/// * SPACE - action
+/// * q - quit
+///
+/// h2. Output is a single terminal line
+///
+/// We overwrite the line everytime at page update using special terminal characters
+///
+
+// ** Input implementation **
+
+// run input in a dedicated thread to prevent blocking
 fn spawn_stdin_channel() -> Receiver<u8> {
     let (tx, rx) = mpsc::channel::<u8>();
     thread::spawn(move || loop {
@@ -20,16 +40,12 @@ fn spawn_stdin_channel() -> Receiver<u8> {
     rx
 }
 
-fn sleep_ms(millis: u64) {
-    let duration = time::Duration::from_millis(millis);
-    thread::sleep(duration);
-}
-
 struct Input {
     stdin_channel: Receiver<u8>,
     termios: Termios,
 }
 
+// use termios to suppress echo of key press
 impl Input {
     fn new() -> Self {
         let stdin = 0; // couldn't get std::os::unix::io::FromRawFd to work
@@ -45,6 +61,7 @@ impl Input {
     }
 }
 
+// restore previous termcaps
 impl Drop for Input {
     fn drop(&mut self) {
         let stdin = 0;
@@ -73,6 +90,8 @@ impl Iterator for Input {
     }
 }
 
+// ** Display implementation **
+
 struct TerminalDisplay {
     len: usize,
 }
@@ -98,9 +117,11 @@ impl TerminalDisplay {
         print!("{}", remove_previous_message(self.len + 6));
         self.len = message.len();
         print!("** {} **", message);
-        stdout().flush();
+        stdout().flush().unwrap();
     }
 }
+
+// ** Page specifications **
 
 struct Page {
     message: String,
@@ -120,46 +141,51 @@ impl PageInterface<TerminalDisplay> for Page {
     }
 }
 
+struct TimePage;
+
+impl PageInterface<TerminalDisplay> for TimePage {
+    fn display(&self, display_driver: &mut TerminalDisplay) {
+        let now: DateTime<Utc> = Utc::now();
+        let formatted_time: String = now.format("%T").to_string();
+        display_driver.update(&formatted_time);
+    }
+}
+
+// ** Arbitrary functions **
+
+fn sleep_ms(millis: u64) {
+    let duration = time::Duration::from_millis(millis);
+    thread::sleep(duration);
+}
+
+
 fn main() {
     let home = Page::new("Home message");
     let display = TerminalDisplay { len: 0 };
-    let mut m = PageManager::new(display, home);
+    let mut m = PageManager::new(display, Box::new(home));
     let mut input = Input::new();
 
     // Optional cannot be reached by external action - called when entering async loop
     let startup = Page::new("Welcome message");
-    m.register_startup(startup);
+    m.register_startup(Box::new(startup));
 
     // Optional cannot be reached by external action - called when leaving the async loop
     let shutdown = Page::new("Bye bye message");
-    m.register_shutdown(shutdown);
+    m.register_shutdown(Box::new(shutdown));
 
     // Additional pages reachable by button
     let page_two = Page::new("Second Page");
-    m.register(page_two);
+    m.register(Box::new(page_two));
     let page_three = Page::new("Third Page");
-    m.register(page_three);
+    m.register(Box::new(page_three));
 
-    // let clock = Page::new().toClockPage();
-    // let temp = Page::new().toTemperaturePage(TempSensor::new());
-    // m.register_action(&home, &clock);
-    // m.register_action(&clock, &temp);
-    // m.register_action(&temp, &home);
+    let page_clock = TimePage {};
+    m.register(Box::new(page_clock));
 
     m.dispatch(Interaction::SystemStart);
     sleep_ms(2000);
     m.dispatch(Interaction::Home);
 
-    // input = Button::Action:todo();
-    // async fn page_output() {
-    //     m.startup().await;
-    //     loop {
-    //         let action = input().await;
-    //         m.action(action).await;
-    //     }
-    //     m.shutdown().await;
-    // }
-    // nb(page_output().await);
     loop {
         match input.next() {
             None => (),
@@ -168,6 +194,7 @@ fn main() {
                 if matches!(interaction, embedded_multi_page_hmi::Interaction::SystemStop) { break; }
             },
         };
+        m.update();
         sleep_ms(200);
     }
     println!();

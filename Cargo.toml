@@ -9,4 +9,5 @@ license = "MIT"
 
 [dev-dependencies]
 termios = "0.3.3"
+chrono = "0.4.19"
 
