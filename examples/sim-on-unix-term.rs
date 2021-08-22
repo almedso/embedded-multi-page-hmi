@@ -1,12 +1,13 @@
 use embedded_multi_page_hmi::*;
 
-use std::io::{self, Read, Write, stdout};
+use chrono::{DateTime, Utc};
+use std::io::{self, stdout, Read, Write};
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
 use std::{thread, time};
-use termios::{Termios, TCSANOW, ECHO, ICANON, tcsetattr};
-use chrono::{DateTime, Utc};
+#[cfg(target_family = "unix")]
+use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW};
 
 /// h1. Simulate on unix terminal
 ///
@@ -34,34 +35,14 @@ fn spawn_stdin_channel() -> Receiver<u8> {
             .bytes()
             .next()
             .and_then(|byte| byte.ok())
-            .unwrap();  // panic if stdin is closed on purpose
+            .unwrap(); // panic if stdin is closed on purpose
         tx.send(byte).unwrap();
     });
     rx
 }
 
-struct Input {
-    stdin_channel: Receiver<u8>,
-    termios: Termios,
-}
-
-// use termios to suppress echo of key press
-impl Input {
-    fn new() -> Self {
-        let stdin = 0; // couldn't get std::os::unix::io::FromRawFd to work
-                       // on /dev/stdin or /dev/tty
-        let termios = Termios::from_fd(stdin).unwrap();
-        let mut new_termios = termios.clone();  // make a mutable copy of termios
-                                                // that we will modify
-        new_termios.c_lflag &= !ECHO; // no echo
-        new_termios.c_lflag &= !ICANON; // no canonical mode
-        tcsetattr(stdin, TCSANOW, &mut new_termios).unwrap();
-
-        Input { stdin_channel: spawn_stdin_channel(), termios, }
-    }
-}
-
 // restore previous termcaps
+#[cfg(target_family = "unix")]
 impl Drop for Input {
     fn drop(&mut self) {
         let stdin = 0;
@@ -70,23 +51,54 @@ impl Drop for Input {
     }
 }
 
+struct Input {
+    stdin_channel: Receiver<u8>,
+    #[cfg(target_family = "unix")]
+    termios: Termios,
+}
+
+// use termios to suppress echo of key press
+impl Input {
+    fn new() -> Self {
+        #[cfg(target_family = "unix")]
+        let stdin = 0; // couldn't get std::os::unix::io::FromRawFd to work
+                       // on /dev/stdin or /dev/tty
+        #[cfg(target_family = "unix")]
+        let termios = Termios::from_fd(stdin).unwrap();
+
+        #[cfg(target_family = "unix")]
+        {
+            let mut new_termios = termios.clone(); // make a mutable copy of termios
+                                                   // that we will modify
+            new_termios.c_lflag &= !ECHO; // no echo
+            new_termios.c_lflag &= !ICANON; // no canonical mode
+            tcsetattr(stdin, TCSANOW, &mut new_termios).unwrap();
+        }
+
+        Input {
+            stdin_channel: spawn_stdin_channel(),
+            #[cfg(target_family = "unix")]
+            termios,
+        }
+    }
+}
+
 impl Iterator for Input {
     type Item = Interaction;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.stdin_channel.try_recv() {
-                Ok(key) => match key as char {
-                    'n' => Some(Interaction::Next),
-                    'p' => Some(Interaction::Previous),
-                    ' ' => Some(Interaction::Action),
-                    'b' => Some(Interaction::Back),
-                    'h' => Some(Interaction::Home),
-                    'q' => Some(Interaction::SystemStop),
-                    _ => None,
-                },
-                Err(TryRecvError::Empty) => None,
-                Err(TryRecvError::Disconnected) => panic!("Channel disconnected"),
-            }
+            Ok(key) => match key as char {
+                'n' => Some(Interaction::Next),
+                'p' => Some(Interaction::Previous),
+                ' ' => Some(Interaction::Action),
+                'b' => Some(Interaction::Back),
+                'h' => Some(Interaction::Home),
+                _ => None,
+            },
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => panic!("Channel disconnected"),
+        }
     }
 }
 
@@ -158,7 +170,6 @@ fn sleep_ms(millis: u64) {
     thread::sleep(duration);
 }
 
-
 fn main() {
     let home = Page::new("Home message");
     let display = TerminalDisplay { len: 0 };
@@ -182,21 +193,23 @@ fn main() {
     let page_clock = TimePage {};
     m.register(Box::new(page_clock));
 
-    m.dispatch(Interaction::SystemStart);
+    m.dispatch(PageNavigation::SystemStart);
     sleep_ms(2000);
-    m.dispatch(Interaction::Home);
+    m.dispatch(PageNavigation::Home);
+
+    // infinite loop use ctrl-c to exit
 
     loop {
         match input.next() {
             None => (),
             Some(interaction) => {
-                m.dispatch(interaction);
-                if matches!(interaction, embedded_multi_page_hmi::Interaction::SystemStop) { break; }
-            },
+                m.dispatch(map_interaction_to_navigation(interaction));
+                if matches!(interaction, embedded_multi_page_hmi::Interaction::Action) {
+                    break;
+                }
+            }
         };
         m.update();
         sleep_ms(200);
     }
-    println!();
-
 }

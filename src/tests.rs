@@ -122,17 +122,17 @@ mod page_manager {
         let mut m = PageManager::new(d, Box::new(foo));
         m.register(Box::new(bar));
         m.update();
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
     }
 
     #[test]
@@ -170,27 +170,27 @@ mod page_manager {
         m.register(Box::new(bar));
         m.register(Box::new(baz));
         m.update();
-        m.dispatch(Interaction::Home);
+        m.dispatch(PageNavigation::Home);
 
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
 
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
 
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
-        m.dispatch(Interaction::Next);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Left);
 
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Previous);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
     }
 
     #[test]
@@ -212,92 +212,34 @@ mod page_manager {
         m.register(Box::new(foo));
         m.update();
         m.register(Box::new(bar));
-        m.dispatch(Interaction::Previous);
+        m.dispatch(PageNavigation::Right);
         m.register(Box::new(baz));
-        m.dispatch(Interaction::Previous);
-        m.dispatch(Interaction::Next);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Left);
     }
 
     #[test]
-    fn four_pages_iterator_init() {
+    fn sub_pages_iterator_no_subpages() {
+        let home = PageMock::new("Home");
+        let d = DisplayDriverMock::new("Update check", expect("Home"));
+        let mut m = PageManager::new(d, Box::new(home));
+        m.dispatch(PageNavigation::Home);
+        check_page_iteration("empty iterator", vec![], m.sub_iter());
+    }
+
+    #[test]
+    fn sub_pages_iterator_three_subpages() {
         let home = PageMock::new("Home");
         let foo = PageMock::new("foo");
         let bar = PageMock::new("bar");
         let baz = PageMock::new("baz");
-        let d = DisplayDriverMock::new("Update check", expect("baz"));
+        let d = DisplayDriverMock::new("Update check", expect("Home"));
         let mut m = PageManager::new(d, Box::new(home));
-        m.register(Box::new(foo));
+        m.register_sub(Box::new(foo));
         m.register(Box::new(bar));
         m.register(Box::new(baz));
-
-        m.update();
-
-        check_page_iteration("iterator_init-forward", vec![], m.forward_iter());
-        check_page_iteration(
-            "iterator_init-backward",
-            expect("bar foo Home"),
-            m.backward_iter(),
-        );
-    }
-
-    #[test]
-    fn four_pages_iterator_one_previous() {
-        let home = PageMock::new("Home");
-        let foo = PageMock::new("foo");
-        let bar = PageMock::new("bar");
-        let baz = PageMock::new("baz");
-        let d = DisplayDriverMock::new("Update check", expect("baz bar"));
-        let mut m = PageManager::new(d, Box::new(home));
-        m.register(Box::new(foo));
-        m.register(Box::new(bar));
-        m.register(Box::new(baz));
-        m.update();
-        m.activate_previous();
-        m.update();
-        check_page_iteration("forward list", expect("baz"), m.forward_iter());
-        check_page_iteration("backward list", expect("foo Home"), m.backward_iter());
-    }
-
-    #[test]
-    fn four_pages_iterator_two_previous() {
-        let home = PageMock::new("Home");
-        let foo = PageMock::new("foo");
-        let bar = PageMock::new("bar");
-        let baz = PageMock::new("baz");
-        let d = DisplayDriverMock::new("Update check", expect("baz bar foo"));
-        let mut m = PageManager::new(d, Box::new(home));
-        m.register(Box::new(foo));
-        m.register(Box::new(bar));
-        m.register(Box::new(baz));
-        m.update();
-        m.activate_previous();
-        m.update();
-        m.activate_previous();
-        m.update();
-        check_page_iteration("forward list", expect("bar baz"), m.forward_iter());
-        check_page_iteration("backward list", expect("Home"), m.backward_iter());
-    }
-
-    #[test]
-    fn four_pages_iterator_three_previous() {
-        let home = PageMock::new("Home");
-        let foo = PageMock::new("foo");
-        let bar = PageMock::new("bar");
-        let baz = PageMock::new("baz");
-        let d = DisplayDriverMock::new("Update check", expect("baz bar foo Home"));
-        let mut m = PageManager::new(d, Box::new(home));
-        m.register(Box::new(foo));
-        m.register(Box::new(bar));
-        m.register(Box::new(baz));
-        m.update();
-        m.activate_previous();
-        m.update();
-        m.activate_previous();
-        m.update();
-        m.activate_previous();
-        m.update();
-        check_page_iteration("forward list", expect("foo bar baz"), m.forward_iter());
-        check_page_iteration("backward list", vec![], m.backward_iter());
+        m.dispatch(PageNavigation::Home);
+        check_page_iteration("sub list", expect("foo bar baz"), m.sub_iter());
     }
 
     #[test]
@@ -310,16 +252,16 @@ mod page_manager {
         m.register(Box::new(bar));
         m.register(Box::new(baz));
         m.activate_home();
-        assert!(m.activate_next(), "expected move to bar");
-        assert!(m.activate_next(), "expected move to baz");
-        assert!(!m.activate_next(), "expected stay baz");
-        assert!(!m.activate_next(), "expected stay baz");
-        assert!(m.activate_previous(), "expected move to bar");
-        assert!(m.activate_previous(), "expected move to foo");
-        assert!(!m.activate_previous(), "expected stay foo");
-        assert!(!m.activate_previous(), "expected stay foo");
-        assert!(m.activate_next(), "expected stay bar");
-        assert!(m.activate_previous(), "expected move to foo");
+        assert!(m.activate_left(), "expected move to bar");
+        assert!(m.activate_left(), "expected move to baz");
+        assert!(m.activate_right(), "expected stay baz");
+        assert!(m.activate_right(), "expected stay baz");
+        assert!(!m.activate_right(), "expected move to bar");
+        assert!(!m.activate_right(), "expected move to foo");
+        assert!(m.activate_left(), "expected stay foo");
+        assert!(m.activate_left(), "expected stay foo");
+        assert!(!m.activate_left(), "expected stay bar");
+        assert!(!m.activate_left(), "expected move to foo");
     }
 
     #[test]
@@ -331,9 +273,9 @@ mod page_manager {
         d.expect("Foo");
         let mut m = PageManager::new(d, Box::new(foo));
         m.register_startup(Box::new(startup));
-        m.dispatch(Interaction::SystemStart);
-        m.dispatch(Interaction::Action);
-        m.dispatch(Interaction::SystemStop);
+        m.dispatch(PageNavigation::SystemStart);
+        m.dispatch(PageNavigation::Update);
+        m.dispatch(PageNavigation::SystemStop);
     }
     #[test]
     fn shutdown_navigation() {
@@ -344,8 +286,132 @@ mod page_manager {
         d.expect("Shutdown");
         let mut m = PageManager::new(d, Box::new(foo));
         m.register_shutdown(Box::new(shutdown));
-        m.dispatch(Interaction::SystemStart);
-        m.dispatch(Interaction::Action);
-        m.dispatch(Interaction::SystemStop);
+        m.dispatch(PageNavigation::SystemStart);
+        m.dispatch(PageNavigation::Update);
+        m.dispatch(PageNavigation::SystemStop);
+    }
+
+    #[test]
+    fn home_two_pages_and_two_subpages_and_two_subsubpages_navigation() {
+        let home = PageMock::new("Home");
+        let level_1_second = PageMock::new("level_1_second");
+        let level_2_first = PageMock::new("level_2_first");
+        let level_2_second = PageMock::new("level_2_second");
+        let level_3_first = PageMock::new("level_3_first");
+        let level_3_second = PageMock::new("level_3_second");
+
+        let mut d = DisplayDriverMock::default("multi-level");
+        d.expect("level_3_second");
+        d.expect("Home");
+        d.expect("level_1_second");
+        d.expect("Home");
+        d.expect("Home"); // try a subpage which is not below home
+        d.expect("level_1_second");
+        d.expect("level_2_first");
+        d.expect("level_2_first"); // try a subpage which is not below
+        d.expect("level_2_second");
+        d.expect("level_3_second");
+        d.expect("level_3_second");
+        d.expect("level_3_first");
+        d.expect("level_3_first");
+        d.expect("level_2_second");
+        d.expect("level_3_second"); // we have just two sub pages so we end up at the second
+
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register(Box::new(level_1_second));
+        m.register_sub(Box::new(level_2_first));
+        m.register(Box::new(level_2_second));
+        m.register_sub(Box::new(level_3_first));
+        m.register(Box::new(level_3_second));
+
+        m.update();
+        m.dispatch(PageNavigation::Home);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::NthSubpage(1));
+        m.dispatch(PageNavigation::Left);
+
+        m.dispatch(PageNavigation::NthSubpage(1));
+        m.dispatch(PageNavigation::NthSubpage(1));
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::NthSubpage(2));
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Up);
+        m.dispatch(PageNavigation::NthSubpage(4));
+    }
+
+    #[test]
+    fn home_and_two_subpages_and_two_x_two_subsubpages_navigation() {
+        let home = PageMock::new("Home");
+        let level_2_first = PageMock::new("level_2_first");
+        let level_2_second = PageMock::new("level_2_second");
+        let level_31_first = PageMock::new("level_31_first");
+        let level_31_second = PageMock::new("level_31_second");
+        let level_32_first = PageMock::new("level_32_first");
+        let level_32_second = PageMock::new("level_32_second");
+
+        let mut d = DisplayDriverMock::default("multi-level");
+        d.expect("Home");
+        d.expect("level_2_first");
+        d.expect("level_31_first");
+        d.expect("level_31_second");
+        d.expect("level_2_first");
+        d.expect("level_2_second");
+        d.expect("level_32_second");
+        d.expect("level_32_first");
+        d.expect("level_2_second");
+        d.expect("Home");
+
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register_sub(Box::new(level_2_first));
+        m.register_sub(Box::new(level_31_first));
+        m.register(Box::new(level_31_second));
+        m.activate_up();
+        m.register(Box::new(level_2_second));
+        m.register_sub(Box::new(level_32_first));
+        m.register(Box::new(level_32_second));
+
+        m.dispatch(PageNavigation::Home);
+        m.dispatch(PageNavigation::NthSubpage(1));
+        m.dispatch(PageNavigation::NthSubpage(1));
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::Up);
+        m.dispatch(PageNavigation::Left);
+        m.dispatch(PageNavigation::NthSubpage(2));
+        m.dispatch(PageNavigation::Right);
+        m.dispatch(PageNavigation::Up);
+        m.dispatch(PageNavigation::Up);
+    }
+    #[test]
+    fn home_and_three_subpages() {
+        let home = PageMock::new("Home");
+        let level_2_first = PageMock::new("level_2_first");
+        let level_3_first = PageMock::new("level_3_first");
+        let level_4_first = PageMock::new("level_4_first");
+
+        let mut d = DisplayDriverMock::default("multi-level");
+        d.expect("Home");
+        d.expect("level_2_first");
+        d.expect("level_3_first");
+        d.expect("level_4_first");
+        d.expect("level_3_first");
+        d.expect("level_2_first");
+        d.expect("level_3_first");
+        d.expect("Home");
+        let mut m = PageManager::new(d, Box::new(home));
+        m.register_sub(Box::new(level_2_first));
+        m.register_sub(Box::new(level_3_first));
+        m.register_sub(Box::new(level_4_first));
+
+        m.dispatch(PageNavigation::Home);
+        m.dispatch(PageNavigation::NthSubpage(0));
+        m.dispatch(PageNavigation::NthSubpage(0));
+        m.dispatch(PageNavigation::NthSubpage(0));
+        m.dispatch(PageNavigation::Up);
+        m.dispatch(PageNavigation::Up);
+        m.dispatch(PageNavigation::NthSubpage(0));
+        m.dispatch(PageNavigation::Home);
     }
 }
