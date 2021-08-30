@@ -144,23 +144,39 @@ pub fn map_interaction_to_navigation(interaction: Interaction) -> PageNavigation
         Interaction::Previous => PageNavigation::Right,
     }
 }
+
 /// Data structures that implement the Page trait are Pages and can be handled
 /// by the PageManager type
+///
+/// Args
+/// * `display_driver` - The display to render the page content
+/// * `
 pub trait PageInterface<D> {
     /// Force updating the page content on the display
     fn display(&self, display_driver: &mut D);
+
+    /// Trigger an internal update and causes internal state modification
+    ///
+    /// Args:
+    ///     title_of_subpages: Iterator to titles of subpages (Optional)
+    fn update<'a>(&mut self, _title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>) {}
 
     /// Handle an interaction internally
     fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
         map_interaction_to_navigation(interaction)
     }
 
-    /// lifetime indication
+    /// Lifetime indication - default is infinite lifetime
+    ///
+    /// Returns
+    ///
+    /// * `None` - Infinite lifetime
+    /// * `Some(lifetime)` - Finite lifetime in milliseconds
     fn get_life_time_in_ms(&self) -> Option<u16> {
         Option::None
     }
 
-    /// Every page has a title; default is empty String
+    /// Every page has a title - default is empty &str
     fn title(&self) -> &str {
         ""
     }
@@ -176,29 +192,29 @@ pub trait PageInterface<D> {
 /// Startup and Shutdown pages are purely information pages and not
 /// activated only by SystemStartup and SystemShutdown events.
 ///
-/// h2. Implementation Note
-///
-/// There is only one page active at a time, that dispatches events
-/// (stored in page variable). other pages are activate by updating links
-/// (in respective directions).
-///
-/// * Tree structures of pages are modeled by left, right, up and down links.
-/// * Tree root is where both up and left links are empty.
-/// * From the active page, all other pages can be navigated to
-///
-/// h3. Example Structure
-///
-/// ```ignore
-///  a-------------------b-----------c
-///  |                   |
-///  d-----e-----f       o-p
-///  |     |     |
-///  g-h-i j-k-l m-n
-/// ```
-/// * `a`- is root page
-/// * `b, c` - are pages on the same level like `a` reachable via right link of `a`
-/// * `d, e, f`- are sub-pages of `a` reachable via down link of `a`
-///
+// h2. Implementation Note
+//
+// There is only one page active at a time, that dispatches events
+// (stored in page variable). other pages are activate by updating links
+// (in respective directions).
+//
+// * Tree structures of pages are modeled by left, right, up and down links.
+// * Tree root is where both up and left links are empty.
+// * From the active page, all other pages can be navigated to
+//
+// h3. Example Structure
+//
+// ```ignore
+//  a-------------------b-----------c
+//  |                   |
+//  d-----e-----f       o-p
+//  |     |     |
+//  g-h-i j-k-l m-n
+// ```
+// * `a`- is root page
+// * `b, c` - are pages on the same level like `a` reachable via right link of `a`
+// * `d, e, f`- are sub-pages of `a` reachable via down link of `a`
+//
 pub struct PageManager<D> {
     display: D,
     page: Box<dyn PageInterface<D>>,
@@ -220,8 +236,10 @@ struct Node<T> {
     up: Link<T>,
 }
 
-impl<D> PageManager<D> {
+impl<'a, D> PageManager<D> {
     /// PageManager Constructor
+    ///
+    /// Arguments
     ///
     /// * `display`: The display data structure where all output is rendered to
     ///   The display data structure and the logic attached makes the rendered
@@ -243,6 +261,11 @@ impl<D> PageManager<D> {
 
     /// Update the content of the active page on the display
     pub fn update(&mut self) {
+        // let &mut page = self.page;
+        let iter = Box::new(Iter {
+            left: self.down.as_deref(),
+        });
+        self.page.update(Some(Box::new(iter.map(|p| p.title()))));
         self.page.display(&mut self.display);
     }
 
@@ -250,6 +273,8 @@ impl<D> PageManager<D> {
     ///
     /// The page is registered in the "left" direction of the
     /// active page. The registered page will be the new active page.
+    ///
+    /// Arguments
     ///
     /// * `page` - The page to be registered and activated.
     pub fn register(&mut self, page: Box<dyn PageInterface<D>>) {
@@ -262,6 +287,8 @@ impl<D> PageManager<D> {
     /// The page is registered in the "down" direction of the
     /// active page. The registered page will be the new active page.
     ///
+    /// Arguments
+    ///
     /// * `page`: - The page to be registered and activated.
     pub fn register_sub(&mut self, page: Box<dyn PageInterface<D>>) {
         self.push_down(page, None, None);
@@ -273,6 +300,8 @@ impl<D> PageManager<D> {
     /// There can be just one startup page. Multiple calls to this function
     /// overwrite the previously set startup page.
     ///
+    /// Arguments
+    ///
     /// * `page`: - The page that should serve for startup.
     pub fn register_startup(&mut self, page: Box<dyn PageInterface<D>>) {
         self.startup = Some(page);
@@ -281,7 +310,9 @@ impl<D> PageManager<D> {
     /// Register a shutdown page
     ///
     /// There can be just one shutdown page. Multiple calls to this function
-    /// overwrite the previously set shutdwon page.
+    /// overwrite the previously set shutdown page.
+    ///
+    /// Arguments
     ///
     /// * `page`: - The page that should serve for startup.
     pub fn register_shutdown(&mut self, page: Box<dyn PageInterface<D>>) {
@@ -482,15 +513,27 @@ impl<D> PageManager<D> {
         self.activate_most_right();
     }
 
-    /// Dispatch an event
+    /// Dispatch an interaction event
     ///
-    /// The event can cause a change of the active page, can
-    /// lead to an update of the active page content and can also be
-    /// ignored.
+    /// Let the active page process the interaction event and eventually turn
+    /// The interaction event into a executed page navigation
     ///
-    /// At first the event is delegated to the active page to handle it.
-    /// The active page can return a different event that is then dispatched
-    /// by the page manager.
+    /// Arguments
+    ///
+    /// * `interaction`: - The interaction event to dispatch
+
+    pub fn dispatch_interaction(&mut self, interaction: Interaction) -> PageNavigation {
+        let navigation = self.page.dispatch(interaction);
+        self.dispatch(navigation);
+        navigation
+    }
+
+    /// Dispatch a navigation event
+    ///
+    /// The event can cause a change of the active page or
+    /// lead to an update of the active page content.
+    ///
+    /// Arguments
     ///
     /// * `navigation`: - The navigation event to dispatch
     pub fn dispatch(&mut self, navigation: PageNavigation) {
@@ -538,6 +581,7 @@ impl<D> PageManager<D> {
 }
 
 impl<D> Drop for PageManager<D> {
+    /// TODO - update to remove everything
     fn drop(&mut self) {
         // forward list
         let mut cur_horizontal = self.left.take();

@@ -1,6 +1,5 @@
 use embedded_multi_page_hmi::*;
 
-use chrono::{DateTime, Utc};
 use std::io::{self, stdout, Read, Write};
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
@@ -16,8 +15,8 @@ use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW};
 /// Keys are:
 /// * n - next page
 /// * p - previous page
-/// * h - home page
-/// * SPACE - action = quit
+/// * h - home page or exit if on home page
+/// * SPACE - action = go to the selected page
 ///
 /// h2. Output is a single terminal line
 ///
@@ -151,15 +150,71 @@ impl PageInterface<TerminalDisplay> for Page {
     fn display(&self, display_driver: &mut TerminalDisplay) {
         display_driver.update(&self.message);
     }
+
+    fn title(&self) -> &str {
+        &self.message[0..self.message.len() - 5]
+    }
 }
 
-struct TimePage;
+struct ListPage {
+    selected: usize,
+    max_items: usize,
+    sub_titles: String,
+}
 
-impl PageInterface<TerminalDisplay> for TimePage {
+impl ListPage {
+    fn new() -> Self {
+        ListPage {
+            selected: 1,
+            max_items: 1,
+            sub_titles: "".to_owned(),
+        }
+    }
+}
+
+impl PageInterface<TerminalDisplay> for ListPage {
     fn display(&self, display_driver: &mut TerminalDisplay) {
-        let now: DateTime<Utc> = Utc::now();
-        let formatted_time: String = now.format("%T").to_string();
-        display_driver.update(&formatted_time);
+        display_driver.update(&self.sub_titles);
+    }
+
+    fn update<'a>(&mut self, title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>) {
+        if let Some(title_iterator) = title_of_subpages {
+            self.max_items = 0;
+            self.sub_titles = "".to_owned();
+            for title in title_iterator {
+                self.max_items += 1;
+                if self.max_items == self.selected {
+                    self.sub_titles.push_str("[ ");
+                }
+                self.sub_titles.push_str(title);
+                if self.max_items == self.selected {
+                    self.sub_titles.push_str(" ]");
+                }
+                self.sub_titles.push_str(" ");
+            }
+        }
+    }
+
+    fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
+        match interaction {
+            Interaction::Action => PageNavigation::NthSubpage(self.selected),
+            Interaction::Back => PageNavigation::Up,
+            Interaction::Home => PageNavigation::SystemStop,
+            Interaction::Next => {
+                self.selected += 1;
+                if self.selected > self.max_items {
+                    self.selected = self.max_items;
+                }
+                PageNavigation::Update
+            }
+            Interaction::Previous => {
+                self.selected -= 1;
+                if self.selected == 0 {
+                    self.selected = 1;
+                }
+                PageNavigation::Update
+            }
+        }
     }
 }
 
@@ -171,48 +226,37 @@ fn sleep_ms(millis: u64) {
 }
 
 fn main() {
-    let home = Page::new("Home message");
+    let home = ListPage::new();
     let display = TerminalDisplay { len: 0 };
     let mut m = PageManager::new(display, Box::new(home));
     let mut input = Input::new();
 
-    // Optional cannot be reached by external action - called when entering async loop
-    let startup = Page::new("Welcome message");
-    m.register_startup(Box::new(startup));
-
-    // Optional cannot be reached by external action - called when leaving the async loop
-    let shutdown = Page::new("Bye bye message");
-    m.register_shutdown(Box::new(shutdown));
-
     // Additional pages reachable by button
+    let page_one = Page::new("First Page");
+    m.register_sub(Box::new(page_one));
     let page_two = Page::new("Second Page");
     m.register(Box::new(page_two));
     let page_three = Page::new("Third Page");
     m.register(Box::new(page_three));
 
-    let page_clock = TimePage {};
-    m.register(Box::new(page_clock));
-
-    m.dispatch(PageNavigation::SystemStart);
-    sleep_ms(2000);
     m.dispatch(PageNavigation::Home);
 
-    // infinite loop use ctrl-c to exit
+    // infinite loop use ctrl-c or space to exit
 
     loop {
         match input.next() {
             None => (),
             Some(interaction) => {
-                m.dispatch(map_interaction_to_navigation(interaction));
-                if matches!(interaction, embedded_multi_page_hmi::Interaction::Action) {
+                if matches!(
+                    m.dispatch_interaction(interaction),
+                    embedded_multi_page_hmi::PageNavigation::SystemStop
+                ) {
                     break;
-                }
+                };
             }
         };
         m.update();
         sleep_ms(200);
     }
-    m.dispatch(PageNavigation::SystemStop);
-    sleep_ms(1000);
     println!();
 }
