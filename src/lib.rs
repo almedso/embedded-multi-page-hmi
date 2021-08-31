@@ -94,6 +94,7 @@
 //#![no_std]
 // use alloc::boxed::Box;
 
+#![allow(clippy::type_complexity)]
 use core::mem;
 
 /// Possible Interactions derived from the input
@@ -408,7 +409,7 @@ impl<D> PageManager<D> {
         right: Link<Box<dyn PageInterface<D>>>,
     ) {
         let new_node = Box::new(Node {
-            page: page,
+            page,
             up: self.up.take(),
             down: None,
             left,
@@ -491,17 +492,19 @@ impl<D> PageManager<D> {
     /// The active page can return a different event that is then dispatched
     /// by the page manager.
     ///
-    /// * `interaction`: - The event to displatch
-    pub fn dispatch(&mut self, interaction: PageNavigation) {
-        match interaction {
-            PageNavigation::SystemStart => match &self.startup {
-                Some(page) => page.display(&mut self.display),
-                _ => (),
-            },
-            PageNavigation::SystemStop => match &self.shutdown {
-                Some(page) => page.display(&mut self.display),
-                _ => (),
-            },
+    /// * `navigation`: - The navigation event to dispatch
+    pub fn dispatch(&mut self, navigation: PageNavigation) {
+        match navigation {
+            PageNavigation::SystemStart => {
+                if let Some(page) = &self.startup {
+                    page.display(&mut self.display)
+                }
+            }
+            PageNavigation::SystemStop => {
+                if let Some(page) = &self.shutdown {
+                    page.display(&mut self.display)
+                }
+            }
             PageNavigation::Left => {
                 self.activate_left();
                 self.update();
@@ -523,7 +526,7 @@ impl<D> PageManager<D> {
                 let mut index: usize = index;
                 while index > 1 {
                     self.activate_left();
-                    index = index - 1;
+                    index -= 1;
                 }
                 self.update();
             }
@@ -554,7 +557,7 @@ pub struct Iter<'a, P> {
 }
 
 impl<D> PageManager<D> {
-    pub fn sub_iter<'a>(&'a self) -> Iter<'a, Box<dyn PageInterface<D>>> {
+    pub fn sub_iter(&self) -> Iter<Box<dyn PageInterface<D>>> {
         Iter {
             left: self.down.as_deref(),
         }
