@@ -1,3 +1,4 @@
+use embedded_multi_page_hmi::page::basic::{BasicPage, TextPage};
 use embedded_multi_page_hmi::*;
 
 use chrono::{DateTime, Utc};
@@ -135,25 +136,15 @@ impl TerminalDisplay {
 
 // ** Page specifications **
 
-struct Page {
-    message: String,
-}
-
-impl Page {
-    fn new(message: &str) -> Self {
-        Page {
-            message: message.to_string(),
-        }
-    }
-}
-
-impl PageInterface<TerminalDisplay> for Page {
+impl PageInterface<TerminalDisplay> for TextPage {
     fn display(&self, display_driver: &mut TerminalDisplay) {
-        display_driver.update(&self.message);
+        display_driver.update(&self.text.to_owned());
     }
 }
 
 struct TimePage;
+
+impl PageBaseInterface for TimePage {}
 
 impl PageInterface<TerminalDisplay> for TimePage {
     fn display(&self, display_driver: &mut TerminalDisplay) {
@@ -171,23 +162,23 @@ fn sleep_ms(millis: u64) {
 }
 
 fn main() {
-    let home = Page::new("Home message");
+    let home = TextPage::new(BasicPage::new("title", None), "Home message");
     let display = TerminalDisplay { len: 0 };
     let mut m = PageManager::new(display, Box::new(home));
     let mut input = Input::new();
 
     // Optional cannot be reached by external action - called when entering async loop
-    let startup = Page::new("Welcome message");
+    let startup = TextPage::new(BasicPage::new("title", None), "Welcome message");
     m.register_startup(Box::new(startup));
 
     // Optional cannot be reached by external action - called when leaving the async loop
-    let shutdown = Page::new("Bye bye message");
+    let shutdown = TextPage::new(BasicPage::new("title", None), "Bye bye message");
     m.register_shutdown(Box::new(shutdown));
 
     // Additional pages reachable by button
-    let page_two = Page::new("Second Page");
+    let page_two = TextPage::new(BasicPage::new("title", None), "Second Page");
     m.register(Box::new(page_two));
-    let page_three = Page::new("Third Page");
+    let page_three = TextPage::new(BasicPage::new("title", None), "Third Page");
     m.register(Box::new(page_three));
 
     let page_clock = TimePage {};

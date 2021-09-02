@@ -1,4 +1,10 @@
-use embedded_multi_page_hmi::*;
+use embedded_multi_page_hmi::{
+    page::{
+        basic::{BasicPage, TextPage},
+        menu::MenuPage,
+    },
+    Interaction, PageInterface, PageManager, PageNavigation,
+};
 
 use std::io::{self, stdout, Read, Write};
 use std::sync::mpsc;
@@ -134,87 +140,17 @@ impl TerminalDisplay {
 
 // ** Page specifications **
 
-struct Page {
-    message: String,
-}
-
-impl Page {
-    fn new(message: &str) -> Self {
-        Page {
-            message: message.to_string(),
-        }
-    }
-}
-
-impl PageInterface<TerminalDisplay> for Page {
+impl PageInterface<TerminalDisplay> for MenuPage {
     fn display(&self, display_driver: &mut TerminalDisplay) {
-        display_driver.update(&self.message);
-    }
-
-    fn title(&self) -> &str {
-        &self.message[0..self.message.len() - 5]
+        let output = format!("{}: {}", &self.basic.title, &self.sub_titles);
+        display_driver.update(&output);
     }
 }
 
-struct ListPage {
-    selected: usize,
-    max_items: usize,
-    sub_titles: String,
-}
-
-impl ListPage {
-    fn new() -> Self {
-        ListPage {
-            selected: 1,
-            max_items: 1,
-            sub_titles: "".to_owned(),
-        }
-    }
-}
-
-impl PageInterface<TerminalDisplay> for ListPage {
+impl PageInterface<TerminalDisplay> for TextPage {
     fn display(&self, display_driver: &mut TerminalDisplay) {
-        display_driver.update(&self.sub_titles);
-    }
-
-    fn update<'a>(&mut self, title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>) {
-        if let Some(title_iterator) = title_of_subpages {
-            self.max_items = 0;
-            self.sub_titles = "".to_owned();
-            for title in title_iterator {
-                self.max_items += 1;
-                if self.max_items == self.selected {
-                    self.sub_titles.push_str("[ ");
-                }
-                self.sub_titles.push_str(title);
-                if self.max_items == self.selected {
-                    self.sub_titles.push_str(" ]");
-                }
-                self.sub_titles.push_str(" ");
-            }
-        }
-    }
-
-    fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
-        match interaction {
-            Interaction::Action => PageNavigation::NthSubpage(self.selected),
-            Interaction::Back => PageNavigation::Up,
-            Interaction::Home => PageNavigation::SystemStop,
-            Interaction::Next => {
-                self.selected += 1;
-                if self.selected > self.max_items {
-                    self.selected = self.max_items;
-                }
-                PageNavigation::Update
-            }
-            Interaction::Previous => {
-                self.selected -= 1;
-                if self.selected == 0 {
-                    self.selected = 1;
-                }
-                PageNavigation::Update
-            }
-        }
+        let output = format!("{}: {}", &self.basic.title, &self.text);
+        display_driver.update(&output);
     }
 }
 
@@ -226,17 +162,17 @@ fn sleep_ms(millis: u64) {
 }
 
 fn main() {
-    let home = ListPage::new();
+    let home = MenuPage::new(BasicPage::new("Menu", None));
     let display = TerminalDisplay { len: 0 };
     let mut m = PageManager::new(display, Box::new(home));
     let mut input = Input::new();
 
     // Additional pages reachable by button
-    let page_one = Page::new("First Page");
+    let page_one = TextPage::new(BasicPage::new("First", None), "First Page");
     m.register_sub(Box::new(page_one));
-    let page_two = Page::new("Second Page");
+    let page_two = TextPage::new(BasicPage::new("Second", None), "Second Page");
     m.register(Box::new(page_two));
-    let page_three = Page::new("Third Page");
+    let page_three = TextPage::new(BasicPage::new("Third", None), "Third Page");
     m.register(Box::new(page_three));
 
     m.dispatch(PageNavigation::Home);

@@ -66,6 +66,8 @@ mod mocks {
         }
     }
 
+    impl PageBaseInterface for PageMock {}
+
     impl PageInterface<DisplayDriverMock> for PageMock {
         fn display(&self, display_driver: &mut DisplayDriverMock) {
             display_driver.update(&self.message);

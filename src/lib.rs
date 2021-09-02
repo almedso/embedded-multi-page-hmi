@@ -151,10 +151,14 @@ pub fn map_interaction_to_navigation(interaction: Interaction) -> PageNavigation
 /// Args
 /// * `display_driver` - The display to render the page content
 /// * `
-pub trait PageInterface<D> {
+pub trait PageInterface<D>: PageBaseInterface {
     /// Force updating the page content on the display
     fn display(&self, display_driver: &mut D);
-
+}
+/// Data structures that implement the Page trait are Pages and can be handled
+/// by the PageManager type
+///
+pub trait PageBaseInterface {
     /// Trigger an internal update and causes internal state modification
     ///
     /// Args:
@@ -617,6 +621,8 @@ impl<'a, D> Iterator for Iter<'a, Box<dyn PageInterface<D>>> {
         })
     }
 }
+
+pub mod page;
 
 #[cfg(test)]
 mod tests;
