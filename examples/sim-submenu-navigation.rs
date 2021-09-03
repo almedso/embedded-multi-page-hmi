@@ -3,7 +3,8 @@ use embedded_multi_page_hmi::{
         basic::{BasicPage, TextPage},
         menu::MenuPage,
     },
-    Interaction, PageInterface, PageManager, PageNavigation,
+    page_manager::PageManager,
+    Interaction, PageInterface, PageNavigation,
 };
 
 use std::io::{self, stdout, Read, Write};
@@ -183,10 +184,7 @@ fn main() {
         match input.next() {
             None => (),
             Some(interaction) => {
-                if matches!(
-                    m.dispatch_interaction(interaction),
-                    embedded_multi_page_hmi::PageNavigation::SystemStop
-                ) {
+                if let Err(_e) = m.dispatch_interaction(interaction) {
                     break;
                 };
             }

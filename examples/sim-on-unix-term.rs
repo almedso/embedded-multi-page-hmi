@@ -1,4 +1,5 @@
 use embedded_multi_page_hmi::page::basic::{BasicPage, TextPage};
+use embedded_multi_page_hmi::page_manager::PageManager;
 use embedded_multi_page_hmi::*;
 
 use chrono::{DateTime, Utc};

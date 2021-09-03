@@ -95,7 +95,6 @@
 // use alloc::boxed::Box;
 
 #![allow(clippy::type_complexity)]
-use core::mem;
 
 /// Possible Interactions derived from the input
 #[derive(Debug, Clone, Copy)]
@@ -114,7 +113,7 @@ pub enum Interaction {
 }
 
 /// Page navigation events dispatched by pagemanager
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PageNavigation {
     /// Start the HMI.
     SystemStart,
@@ -145,39 +144,43 @@ pub fn map_interaction_to_navigation(interaction: Interaction) -> PageNavigation
     }
 }
 
+/// Any error a page update my run into
+#[derive(Debug, Clone)]
+pub struct PageError;
+
 /// Data structures that implement the Page trait are Pages and can be handled
 /// by the PageManager type
 ///
 /// Args
 /// * `display_driver` - The display to render the page content
 /// * `
-pub trait PageInterface<D>: PageBaseInterface {
+pub trait PageInterface<D>: PageInteractionInterface {
     /// Force updating the page content on the display
     fn display(&self, display_driver: &mut D);
 }
+
 /// Data structures that implement the Page trait are Pages and can be handled
 /// by the PageManager type
 ///
 pub trait PageBaseInterface {
-    /// Trigger an internal update and causes internal state modification
+    /// Trigger a page-internal update and causes page-internal state modification
+    ///
+    /// Is called by `PageManager`.
+    /// Handles Page Lifetime management
     ///
     /// Args:
     ///     title_of_subpages: Iterator to titles of subpages (Optional)
-    fn update<'a>(&mut self, _title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>) {}
-
-    /// Handle an interaction internally
-    fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
-        map_interaction_to_navigation(interaction)
-    }
-
-    /// Lifetime indication - default is infinite lifetime
     ///
-    /// Returns
-    ///
-    /// * `None` - Infinite lifetime
-    /// * `Some(lifetime)` - Finite lifetime in milliseconds
-    fn get_life_time_in_ms(&self) -> Option<u16> {
-        Option::None
+    /// Returns:
+    ///     `Ok(<PageNavigation>)` - In case update is went well, to indicate the which page
+    ///         to navigate to next.
+    ///     `Error` - Indicate an error. (Note: Could be on purpose to force a controlled
+    ///         gui process shutdown)
+    fn update<'a>(
+        &mut self,
+        _title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>,
+    ) -> Result<PageNavigation, PageError> {
+        Ok(PageNavigation::Update)
     }
 
     /// Every page has a title - default is empty &str
@@ -186,443 +189,20 @@ pub trait PageBaseInterface {
     }
 }
 
-/// Implementation of the inter-page interaction model
-///
-/// The PageManager is responsible for switching among pages while
-/// pages do not know about other pages.
-/// The PageManager also dispatches events and updates the current page.
-///
-/// Only a "home" page is mandatory. Any other pages are optional.
-/// Startup and Shutdown pages are purely information pages and not
-/// activated only by SystemStartup and SystemShutdown events.
-///
-// h2. Implementation Note
-//
-// There is only one page active at a time, that dispatches events
-// (stored in page variable). other pages are activate by updating links
-// (in respective directions).
-//
-// * Tree structures of pages are modeled by left, right, up and down links.
-// * Tree root is where both up and left links are empty.
-// * From the active page, all other pages can be navigated to
-//
-// h3. Example Structure
-//
-// ```ignore
-//  a-------------------b-----------c
-//  |                   |
-//  d-----e-----f       o-p
-//  |     |     |
-//  g-h-i j-k-l m-n
-// ```
-// * `a`- is root page
-// * `b, c` - are pages on the same level like `a` reachable via right link of `a`
-// * `d, e, f`- are sub-pages of `a` reachable via down link of `a`
-//
-pub struct PageManager<D> {
-    display: D,
-    page: Box<dyn PageInterface<D>>,
-    left: Link<Box<dyn PageInterface<D>>>,
-    right: Link<Box<dyn PageInterface<D>>>,
-    up: Link<Box<dyn PageInterface<D>>>,
-    down: Link<Box<dyn PageInterface<D>>>,
-    startup: Option<Box<dyn PageInterface<D>>>,
-    shutdown: Option<Box<dyn PageInterface<D>>>,
-}
-
-type Link<T> = Option<Box<Node<T>>>;
-
-struct Node<T> {
-    page: T,
-    left: Link<T>,
-    right: Link<T>,
-    down: Link<T>,
-    up: Link<T>,
-}
-
-impl<'a, D> PageManager<D> {
-    /// PageManager Constructor
-    ///
-    /// Arguments
-    ///
-    /// * `display`: The display data structure where all output is rendered to
-    ///   The display data structure and the logic attached makes the rendered
-    ///   output appear on some output facility viewable by a human.
-    /// * `home`: The "home" page. There must be at least one page. Other pages
-    ///    are added by register_* calls.
-    pub fn new(display: D, home: Box<dyn PageInterface<D>>) -> Self {
-        PageManager::<D> {
-            display,
-            page: home,
-            left: None,
-            right: None,
-            up: None,
-            down: None,
-            startup: None,
-            shutdown: None,
-        }
-    }
-
-    /// Update the content of the active page on the display
-    pub fn update(&mut self) {
-        // let &mut page = self.page;
-        let iter = Box::new(Iter {
-            left: self.down.as_deref(),
-        });
-        self.page.update(Some(Box::new(iter.map(|p| p.title()))));
-        self.page.display(&mut self.display);
-    }
-
-    /// Register a new page
-    ///
-    /// The page is registered in the "left" direction of the
-    /// active page. The registered page will be the new active page.
-    ///
-    /// Arguments
-    ///
-    /// * `page` - The page to be registered and activated.
-    pub fn register(&mut self, page: Box<dyn PageInterface<D>>) {
-        self.push_left(page, None, None);
-        self.activate_left();
-    }
-
-    /// Register a new sub page
-    ///
-    /// The page is registered in the "down" direction of the
-    /// active page. The registered page will be the new active page.
-    ///
-    /// Arguments
-    ///
-    /// * `page`: - The page to be registered and activated.
-    pub fn register_sub(&mut self, page: Box<dyn PageInterface<D>>) {
-        self.push_down(page, None, None);
-        self.activate_down();
-    }
-
-    /// Register a startup page
-    ///
-    /// There can be just one startup page. Multiple calls to this function
-    /// overwrite the previously set startup page.
-    ///
-    /// Arguments
-    ///
-    /// * `page`: - The page that should serve for startup.
-    pub fn register_startup(&mut self, page: Box<dyn PageInterface<D>>) {
-        self.startup = Some(page);
-    }
-
-    /// Register a shutdown page
-    ///
-    /// There can be just one shutdown page. Multiple calls to this function
-    /// overwrite the previously set shutdown page.
-    ///
-    /// Arguments
-    ///
-    /// * `page`: - The page that should serve for startup.
-    pub fn register_shutdown(&mut self, page: Box<dyn PageInterface<D>>) {
-        self.shutdown = Some(page);
-    }
-
-    fn push_left(
-        &mut self,
-        page: Box<dyn PageInterface<D>>,
-        up: Link<Box<dyn PageInterface<D>>>,
-        down: Link<Box<dyn PageInterface<D>>>,
-    ) {
-        let new_node = Box::new(Node {
-            page,
-            left: self.left.take(),
-            right: None,
-            down,
-            up,
-        });
-        self.left = Some(new_node);
-    }
-
-    fn push_right(
-        &mut self,
-        page: Box<dyn PageInterface<D>>,
-        up: Link<Box<dyn PageInterface<D>>>,
-        down: Link<Box<dyn PageInterface<D>>>,
-    ) {
-        let new_node = Box::new(Node {
-            page,
-            left: None,
-            right: self.right.take(),
-            up,
-            down,
-        });
-        self.right = Some(new_node);
-    }
-
-    fn pop_left(
-        &mut self,
-    ) -> Option<(
-        Box<dyn PageInterface<D>>,
-        Link<Box<dyn PageInterface<D>>>,
-        Link<Box<dyn PageInterface<D>>>,
-    )> {
-        self.left.take().map(|node| {
-            let mut node = node;
-            self.left = node.left;
-            (node.page, node.up.take(), node.down.take())
-        })
-    }
-
-    fn pop_right(
-        &mut self,
-    ) -> Option<(
-        Box<dyn PageInterface<D>>,
-        Link<Box<dyn PageInterface<D>>>,
-        Link<Box<dyn PageInterface<D>>>,
-    )> {
-        self.right.take().map(|node| {
-            let mut node = node;
-            self.right = node.right;
-            (node.page, node.up.take(), node.down.take())
-        })
-    }
-
-    /// Navigate to the left page
-    /// If there is no left page it returns false and activate page is unchanged
-    fn activate_left(&mut self) -> bool {
-        match self.pop_left() {
-            None => false,
-            Some((page, up, down)) => {
-                let page = mem::replace(&mut self.page, page);
-                let new_up = self.up.take();
-                let new_down = self.down.take();
-                self.push_right(page, new_up, new_down);
-                self.up = up;
-                self.down = down;
-                true
-            }
-        }
-    }
-
-    /// Navigate to the right page
-    /// If there is no right page it returns false and activate page is unchanged
-    fn activate_right(&mut self) -> bool {
-        match self.pop_right() {
-            None => false,
-            Some((page, up, down)) => {
-                let page = mem::replace(&mut self.page, page);
-                let new_up = self.up.take();
-                let new_down = self.down.take();
-                self.push_left(page, new_up, new_down);
-                self.up = up;
-                self.down = down;
-                true
-            }
-        }
-    }
-
-    fn activate_most_right(&mut self) {
-        while self.activate_right() {}
-    }
-
-    fn push_down(
-        &mut self,
-        page: Box<dyn PageInterface<D>>,
-        left: Link<Box<dyn PageInterface<D>>>,
-        right: Link<Box<dyn PageInterface<D>>>,
-    ) {
-        let new_node = Box::new(Node {
-            page,
-            up: None,
-            down: self.down.take(),
-            left,
-            right,
-        });
-        self.down = Some(new_node);
-    }
-
-    fn push_up(
-        &mut self,
-        page: Box<dyn PageInterface<D>>,
-        left: Link<Box<dyn PageInterface<D>>>,
-        right: Link<Box<dyn PageInterface<D>>>,
-    ) {
-        let new_node = Box::new(Node {
-            page,
-            up: self.up.take(),
-            down: None,
-            left,
-            right,
-        });
-        self.up = Some(new_node);
-    }
-
-    fn pop_down(
-        &mut self,
-    ) -> Option<(
-        Box<dyn PageInterface<D>>,
-        Link<Box<dyn PageInterface<D>>>,
-        Link<Box<dyn PageInterface<D>>>,
-    )> {
-        self.down.take().map(|node| {
-            let mut node = node;
-            self.down = node.down;
-            (node.page, node.left.take(), node.right.take())
-        })
-    }
-
-    fn pop_up(
-        &mut self,
-    ) -> Option<(
-        Box<dyn PageInterface<D>>,
-        Link<Box<dyn PageInterface<D>>>,
-        Link<Box<dyn PageInterface<D>>>,
-    )> {
-        self.up.take().map(|node| {
-            let mut node = node;
-            self.up = node.up;
-            (node.page, node.left.take(), node.right.take())
-        })
-    }
-
-    fn activate_down(&mut self) -> bool {
-        match self.pop_down() {
-            None => false,
-            Some((page, left, right)) => {
-                let page = mem::replace(&mut self.page, page);
-                let new_left = self.left.take();
-                let new_right = self.right.take();
-                self.push_up(page, new_left, new_right);
-                self.left = left;
-                self.right = right;
-                true
-            }
-        }
-    }
-
-    fn activate_up(&mut self) -> bool {
-        self.activate_most_right();
-        match self.pop_up() {
-            None => false,
-            Some((page, left, right)) => {
-                let page = mem::replace(&mut self.page, page);
-                let new_left = self.left.take();
-                let new_right = self.right.take();
-                self.push_down(page, new_left, new_right);
-                self.left = left;
-                self.right = right;
-                true
-            }
-        }
-    }
-
-    fn activate_home(&mut self) {
-        while self.activate_up() {}
-        self.activate_most_right();
-    }
-
-    /// Dispatch an interaction event
-    ///
-    /// Let the active page process the interaction event and eventually turn
-    /// The interaction event into a executed page navigation
-    ///
-    /// Arguments
-    ///
-    /// * `interaction`: - The interaction event to dispatch
-
-    pub fn dispatch_interaction(&mut self, interaction: Interaction) -> PageNavigation {
-        let navigation = self.page.dispatch(interaction);
-        self.dispatch(navigation);
-        navigation
-    }
-
-    /// Dispatch a navigation event
-    ///
-    /// The event can cause a change of the active page or
-    /// lead to an update of the active page content.
-    ///
-    /// Arguments
-    ///
-    /// * `navigation`: - The navigation event to dispatch
-    pub fn dispatch(&mut self, navigation: PageNavigation) {
-        match navigation {
-            PageNavigation::SystemStart => {
-                if let Some(page) = &self.startup {
-                    page.display(&mut self.display)
-                }
-            }
-            PageNavigation::SystemStop => {
-                if let Some(page) = &self.shutdown {
-                    page.display(&mut self.display)
-                }
-            }
-            PageNavigation::Left => {
-                self.activate_left();
-                self.update();
-            }
-            PageNavigation::Right => {
-                self.activate_right();
-                self.update();
-            }
-            PageNavigation::Home => {
-                self.activate_home();
-                self.update();
-            }
-            PageNavigation::Up => {
-                self.activate_up();
-                self.update();
-            }
-            PageNavigation::NthSubpage(index) => {
-                self.activate_down();
-                let mut index: usize = index;
-                while index > 1 {
-                    self.activate_left();
-                    index -= 1;
-                }
-                self.update();
-            }
-            PageNavigation::Update => {
-                self.update();
-            }
-        };
+pub trait PageInteractionInterface: PageBaseInterface {
+    /// Handle page interaction
+    fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
+        map_interaction_to_navigation(interaction)
     }
 }
 
-impl<D> Drop for PageManager<D> {
-    /// TODO - update to remove everything
-    fn drop(&mut self) {
-        // forward list
-        let mut cur_horizontal = self.left.take();
-        while let Some(mut boxed_node) = cur_horizontal {
-            cur_horizontal = boxed_node.left.take();
-        }
-        // backward list
-        let mut cur_horizontal = self.right.take();
-        while let Some(mut boxed_node) = cur_horizontal {
-            cur_horizontal = boxed_node.left.take();
-        }
-    }
-}
-
-pub struct Iter<'a, P> {
-    left: Option<&'a Node<P>>,
-}
-
-impl<D> PageManager<D> {
-    pub fn sub_iter(&self) -> Iter<Box<dyn PageInterface<D>>> {
-        Iter {
-            left: self.down.as_deref(),
-        }
-    }
-}
-
-impl<'a, D> Iterator for Iter<'a, Box<dyn PageInterface<D>>> {
-    type Item = &'a Box<dyn PageInterface<D>>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.left.map(|node| {
-            self.left = node.left.as_deref();
-            &node.page
-        })
-    }
-}
+pub mod lifetime;
+#[allow(unused_imports)]
+use lifetime::PageLifetime;
 
 pub mod page;
+pub mod page_manager;
 
-#[cfg(test)]
-mod tests;
+// reexport the PageManager
+#[allow(unused_imports)]
+pub use page_manager::PageManager;

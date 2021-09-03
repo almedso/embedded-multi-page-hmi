@@ -20,7 +20,7 @@ impl MenuPage {
 
 use super::super::*;
 
-impl PageBaseInterface for MenuPage {
+impl PageInteractionInterface for MenuPage {
     fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
         match interaction {
             Interaction::Action => PageNavigation::NthSubpage(self.selected),
@@ -42,8 +42,13 @@ impl PageBaseInterface for MenuPage {
             }
         }
     }
+}
 
-    fn update<'a>(&mut self, title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>) {
+impl PageBaseInterface for MenuPage {
+    fn update<'a>(
+        &mut self,
+        title_of_subpages: Option<Box<dyn Iterator<Item = &'a str> + 'a>>,
+    ) -> Result<PageNavigation, PageError> {
         if let Some(title_iterator) = title_of_subpages {
             self.max_items = 0;
             self.sub_titles = "".to_owned();
@@ -59,5 +64,10 @@ impl PageBaseInterface for MenuPage {
                 self.sub_titles.push(' ');
             }
         }
+        Ok(PageNavigation::Update)
+    }
+
+    fn title(&self) -> &str {
+        self.basic.title
     }
 }
