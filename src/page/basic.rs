@@ -3,7 +3,7 @@ use super::super::{
     PageNavigation,
 };
 
-/// Basic pages at least have a title and a lifetime
+/// A Basic page has at least a title and an optional lifetime
 pub struct BasicPage {
     pub title: &'static str,
     pub lifetime: Option<PageLifetime>,
@@ -15,7 +15,7 @@ impl BasicPage {
     }
 }
 
-/// Basic pages at least have a title and a lifetime
+/// A text page holds a text and contains the behavior of a Basic page
 pub struct TextPage {
     pub basic: BasicPage,
     pub text: &'static str,

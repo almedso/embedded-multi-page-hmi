@@ -9,6 +9,4 @@ license = "MIT"
 
 [dev-dependencies]
 chrono = "0.4.19"
-
-[target.'cfg(unix)'.dev-dependencies]
-termios = "0.3.3"
+pancurses = "0.16.1"
