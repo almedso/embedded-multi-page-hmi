@@ -58,10 +58,16 @@ This project is licensed under
 - MIT License ([`LICENSE.md`](LICENSE.md) or
   [online](https://opensource.org/licenses/MIT))
 
-## Future Work
+## Contribution
+
+Feel free and join for contribution.
+
+### Future Work
 
 - Fix page update bug for startup/shutdown
-- Update documentation
-- Check async alternative
-- Selection input/ model update e.g. numbers, words, etc.
 - Move to no-std
+- Update documentation
+- Check async/await alternative in example
+- Pages for selection input/ model update e.g. numbers, words, etc.
+- Provide examples on raspi with four-button epaper shield
+- Provide example on stmf32 with two-buttons and 16x2 alpha-num display
