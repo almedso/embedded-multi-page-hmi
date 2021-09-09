@@ -1,9 +1,23 @@
 [package]
 name = "embedded-multi-page-hmi"
 version = "0.1.0"
+
+description = "Multi page HMI targetting embedded devices with a few of buttons input and a constrainted display"
+authors = ["Volker Kempert <volker.kempert@almedso.de>"]
+keywords = ["embedded", "hmi"]
+
+documentation = "https://docs.rs/embedded-multi-page-hmi"
+homepage = "https://github.com/almedso/embedded-multi-page-hmi"
+repository = "https://github.com/almedso/embedded-multi-page-hmi"
+readme = "README.md"
 edition = "2018"
 license = "MIT"
-
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE.md",
+]
 
 [dependencies]
 
