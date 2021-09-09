@@ -8,6 +8,7 @@ use embedded_multi_page_hmi::{
     Interaction, PageBaseInterface, PageInteractionInterface, PageInterface, PageNavigation,
 };
 
+use chrono::{DateTime, Utc};
 use pancurses::{endwin, initscr, noecho, Input, Window};
 use std::{thread, time};
 
@@ -75,6 +76,8 @@ impl<'a> TerminalDisplay<'a> {
 
 // ** Page specifications **
 
+// we overwrite the home page for the stake of allowing the showdown
+// workflow when requesting up or left navigation on this page.
 pub struct HomePage(pub TextPage);
 
 impl HomePage {
@@ -92,6 +95,7 @@ impl PageBaseInterface for HomePage {
     }
 }
 
+// overwrite the default interaction model for the home page
 impl PageInteractionInterface for HomePage {
     fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
         match interaction {
@@ -103,6 +107,19 @@ impl PageInteractionInterface for HomePage {
         }
     }
 }
+
+// we define our own page: - a page that shows the current and will life forever
+struct TimePage(pub BasicPage);
+
+impl PageBaseInterface for TimePage {
+    fn title(&self) -> &str {
+        self.0.title
+    }
+}
+
+impl PageInteractionInterface for TimePage {}
+
+// ** All pages need to implement a display functionality
 
 impl PageInterface<TerminalDisplay<'_>> for HomePage {
     fn display(&self, display_driver: &mut TerminalDisplay) {
@@ -139,6 +156,15 @@ impl PageInterface<TerminalDisplay<'_>> for ShutdownPage {
     }
 }
 
+impl PageInterface<TerminalDisplay<'_>> for TimePage {
+    fn display(&self, display_driver: &mut TerminalDisplay) {
+        let now: DateTime<Utc> = Utc::now();
+        let formatted_time: String = now.format("%T").to_string();
+        let output = format!("{}: {}", self.title(), formatted_time);
+        display_driver.update(&output);
+    }
+}
+
 // ** Arbitrary functions **
 
 fn sleep_ms(millis: u64) {
@@ -152,6 +178,7 @@ fn main() {
     window.printw("Type things, press delete to quit\n");
     window.refresh();
     window.keypad(true);
+    window.nodelay(true); // read input non-blocking
     noecho();
 
     let display = TerminalDisplay::new(&window);
@@ -160,23 +187,25 @@ fn main() {
     let mut input = TerminalInput::new(&window);
 
     // Optional cannot be reached by external action - called when entering async loop
-    let startup = StartupPage::new("Welcome message", 5);
+    // Startup page has a mandatory lifetime.
+    let startup = StartupPage::new("Welcome message", 8);
     m.register_startup(Box::new(startup));
 
     // Optional cannot be reached by external action - called when leaving the async loop
-    let shutdown = ShutdownPage::new("Bye bye message", 5);
+    // Shutdown page has a mandatory lifetime.
+    let shutdown = ShutdownPage::new("Bye bye message", 10);
     m.register_shutdown(Box::new(shutdown));
 
     // Additional pages reachable by next button
+    // A predefined Information text page with lifetime
     let page_one = TextPage::new(
-        BasicPage::new("First", Some(PageLifetime::new(PageNavigation::Left, 2))),
-        "First Page",
+        BasicPage::new("First", Some(PageLifetime::new(PageNavigation::Left, 6))),
+        "First Information Page with 3 seconds lifetime; moving to next page",
     );
     m.register(Box::new(page_one));
-    let page_two = TextPage::new(
-        BasicPage::new("Second", Some(PageLifetime::new(PageNavigation::Home, 2))),
-        "Second Page",
-    );
+
+    // A custom defined TimePage without a lifetime
+    let page_two = TimePage(BasicPage::new("Time", None));
     m.register(Box::new(page_two));
 
     // The main menu below home page
@@ -213,11 +242,11 @@ fn main() {
             Ok(nav) => navigation = nav,
         };
 
-        // input.next is blocking - we do not need to wait - for know
-        // just press random keys to progress with page updates and page aging.
-        // sleep_ms(200);
+        // reading is unblocking, so we need some delay that page update
+        // this delay impacts the page update frequency and impacts page aging.
+        sleep_ms(500);
     }
 
-    // cleanup the display
+    // cleanup and tear down pancurses
     endwin();
 }
