@@ -112,7 +112,6 @@ fn two_pages_navigation() {
     let bar = PageMock::new("bar");
     let mut d = DisplayDriverMock::default("two_page_navigation");
     d.expect("bar");
-    d.expect("bar");
     d.expect("foo");
     d.expect("bar");
     d.expect("foo");
@@ -120,19 +119,20 @@ fn two_pages_navigation() {
     d.expect("foo");
     d.expect("foo");
     d.expect("bar");
+    d.expect("foo");
     d.expect("bar");
     d.expect("foo");
     d.expect("foo");
     let mut m = PageManager::new(d, Box::new(foo));
     m.register(Box::new(bar));
     m.update().unwrap();
-    m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Right).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Right).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Right).unwrap();
     m.dispatch(PageNavigation::Right).unwrap();
+    m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Right).unwrap();
@@ -152,7 +152,6 @@ fn four_pages_navigation() {
     d.expect("foo");
     d.expect("bar");
     d.expect("baz");
-    d.expect("baz");
 
     d.expect("bar");
     d.expect("foo");
@@ -162,12 +161,8 @@ fn four_pages_navigation() {
     d.expect("foo");
     d.expect("bar");
     d.expect("baz");
-    d.expect("baz");
-
-    d.expect("bar");
+    d.expect("Home");
     d.expect("foo");
-    d.expect("Home");
-    d.expect("Home");
 
     let mut m = PageManager::new(d, Box::new(home));
     m.register(Box::new(foo));
@@ -179,7 +174,6 @@ fn four_pages_navigation() {
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
-    m.dispatch(PageNavigation::Left).unwrap();
 
     m.dispatch(PageNavigation::Right).unwrap();
     m.dispatch(PageNavigation::Right).unwrap();
@@ -190,11 +184,7 @@ fn four_pages_navigation() {
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
-
-    m.dispatch(PageNavigation::Right).unwrap();
-    m.dispatch(PageNavigation::Right).unwrap();
-    m.dispatch(PageNavigation::Right).unwrap();
-    m.dispatch(PageNavigation::Right).unwrap();
+    m.dispatch(PageNavigation::Left).unwrap();
 }
 
 #[test]
@@ -315,9 +305,9 @@ fn home_two_pages_and_two_subpages_and_two_subsubpages_navigation() {
     d.expect("level_2_first"); // try a subpage which is not below
     d.expect("level_2_second");
     d.expect("level_3_second");
+    d.expect("level_3_first");
+    d.expect("level_3_first");
     d.expect("level_3_second");
-    d.expect("level_3_first");
-    d.expect("level_3_first");
     d.expect("level_2_second");
     d.expect("level_3_second"); // we have just two sub pages so we end up at the second
 
@@ -339,9 +329,9 @@ fn home_two_pages_and_two_subpages_and_two_subsubpages_navigation() {
     m.dispatch(PageNavigation::NthSubpage(1)).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
     m.dispatch(PageNavigation::NthSubpage(2)).unwrap();
+    m.dispatch(PageNavigation::Right).unwrap();
+    m.dispatch(PageNavigation::Right).unwrap();
     m.dispatch(PageNavigation::Left).unwrap();
-    m.dispatch(PageNavigation::Right).unwrap();
-    m.dispatch(PageNavigation::Right).unwrap();
     m.dispatch(PageNavigation::Up).unwrap();
     m.dispatch(PageNavigation::NthSubpage(4)).unwrap();
 }

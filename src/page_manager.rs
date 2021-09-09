@@ -384,7 +384,10 @@ impl<'a, D> PageManager<D> {
                 None => (),
             },
             PageNavigation::Left => {
-                self.activate_left();
+                // when navigating left, we turn around at the end; in case there is no previous navigation
+                if !self.activate_left() {
+                    self.activate_most_right();
+                }
                 self.update()?;
                 navigation = PageNavigation::Update;
             }
