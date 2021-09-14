@@ -42,6 +42,7 @@ pub struct PageManager<D> {
     down: Link<Box<dyn PageInterface<D>>>,
     startup: Option<Box<dyn PageInterface<D>>>,
     shutdown: Option<Box<dyn PageInterface<D>>>,
+    state: PageManagerState,
 }
 
 type Link<T> = Option<Box<Node<T>>>;
@@ -52,6 +53,12 @@ struct Node<T> {
     right: Link<T>,
     down: Link<T>,
     up: Link<T>,
+}
+
+enum PageManagerState {
+    Startup,
+    Operational,
+    Shutdown,
 }
 
 impl<'a, D> PageManager<D> {
@@ -74,6 +81,7 @@ impl<'a, D> PageManager<D> {
             down: None,
             startup: None,
             shutdown: None,
+            state: PageManagerState::Startup,
         }
     }
 
@@ -354,7 +362,17 @@ impl<'a, D> PageManager<D> {
         &mut self,
         interaction: Interaction,
     ) -> Result<PageNavigation, PageError> {
-        let navigation = self.page.dispatch(interaction);
+        let navigation = match self.state {
+            PageManagerState::Startup => match &mut self.startup {
+                None => self.page.dispatch(interaction),
+                Some(x) => x.dispatch(interaction),
+            },
+            PageManagerState::Operational => self.page.dispatch(interaction),
+            PageManagerState::Shutdown => match &mut self.shutdown {
+                None => self.page.dispatch(interaction),
+                Some(x) => x.dispatch(interaction),
+            },
+        };
         self.dispatch(navigation)
     }
 
@@ -369,13 +387,16 @@ impl<'a, D> PageManager<D> {
     pub fn dispatch(&mut self, navigation: PageNavigation) -> Result<PageNavigation, PageError> {
         let mut navigation = navigation;
         match navigation {
-            PageNavigation::SystemStart => match &mut self.startup {
-                Some(page) => {
-                    navigation = page.update(None)?;
-                    page.display(&mut self.display);
+            PageNavigation::SystemStart => {
+                self.activate_home(); // reset the ordinary page structure to home in case there is no startup page
+                match &mut self.startup {
+                    Some(page) => {
+                        navigation = page.update(None)?;
+                        page.display(&mut self.display);
+                    }
+                    None => (),
                 }
-                None => (),
-            },
+            }
             PageNavigation::SystemStop => match &mut self.shutdown {
                 Some(page) => {
                     navigation = page.update(None)?;
@@ -420,6 +441,14 @@ impl<'a, D> PageManager<D> {
                 self.update()?;
             }
         };
+
+        // update the internal state for Correct HMI interaction update
+        match navigation {
+            PageNavigation::SystemStart => self.state = PageManagerState::Startup,
+            PageNavigation::SystemStop => self.state = PageManagerState::Shutdown,
+            _ => self.state = PageManagerState::Operational,
+        }
+
         Ok(navigation)
     }
 }

@@ -107,7 +107,7 @@ impl PageBaseInterface for StartupPage {
 impl PageInteractionInterface for StartupPage {
     /// Do not react on any interaction
     fn dispatch(&mut self, _interaction: Interaction) -> PageNavigation {
-        PageNavigation::Update
+        PageNavigation::SystemStart
     }
 }
 
@@ -167,7 +167,7 @@ impl PageBaseInterface for ShutdownPage {
 impl PageInteractionInterface for ShutdownPage {
     /// Do not react on any interaction
     fn dispatch(&mut self, _interaction: Interaction) -> PageNavigation {
-        PageNavigation::Update
+        PageNavigation::SystemStop
     }
 }
 

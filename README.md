@@ -66,7 +66,6 @@ Checkout [`DESIGN-NOTES.md`](DESIGN-NOTES.md) for design issues and design decis
 
 ### Future Work
 
-- Fix page update bug for startup/shutdown
 - Move to no-std
 - Update documentation
 - Check async/await alternative in example
