@@ -128,7 +128,7 @@ impl PageInterface<TerminalDisplay<'_>> for HomePage {
     }
 }
 
-impl PageInterface<TerminalDisplay<'_>> for MenuPage {
+impl PageInterface<TerminalDisplay<'_>> for MenuPage<'_> {
     fn display(&self, display_driver: &mut TerminalDisplay) {
         let output = format!("{}: {}", &self.basic.title, &self.sub_titles);
         display_driver.update(&output);
@@ -210,14 +210,14 @@ fn main() {
 
     // The main menu below home page
     m.dispatch(PageNavigation::Home).unwrap();
-    let menu = MenuPage::new(BasicPage::new("Menu", None));
+    let menu = MenuPage::new(BasicPage::new("Menu", None), None);
     m.register_sub(Box::new(menu));
 
     let config_one = TextPage::new(BasicPage::new("Config-1", None), "First config Page");
     m.register_sub(Box::new(config_one));
 
     // A submenu
-    let sub_menu = MenuPage::new(BasicPage::new("Sub-Menu", None));
+    let sub_menu = MenuPage::new(BasicPage::new("Sub-Menu", None), None);
     m.register(Box::new(sub_menu));
 
     let config_two = TextPage::new(BasicPage::new("Config-2", None), "Second config Page");
