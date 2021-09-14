@@ -62,6 +62,8 @@ This project is licensed under
 
 Feel free and join for contribution.
 
+Checkout [`DESIGN-NOTES.md`](DESIGN-NOTES.md) for design issues and design decisions.
+
 ### Future Work
 
 - Fix page update bug for startup/shutdown
