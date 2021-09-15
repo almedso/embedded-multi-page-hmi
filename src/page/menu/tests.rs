@@ -5,7 +5,7 @@ fn check_title_and_init() {
     let sut = MenuPage::new(BasicPage::new("MyTitle", None), Some("Back"));
     assert_eq!(sut.title(), "MyTitle");
     assert_eq!(sut.selected, 1);
-    assert_eq!(sut.sub_titles, "".to_owned());
+    assert_eq!(&sut.sub_titles[..], "");
     assert_eq!(sut.max_items, 1);
     assert_eq!(sut.back, Some("Back"));
 }
@@ -16,7 +16,7 @@ fn update_sub_titles_without_back_simulation() {
     let mut sut = MenuPage::new(BasicPage::new("MyTitle", None), None);
     sut.update(Some(Box::new(sub_titles.iter().map(|p| *p))))
         .unwrap();
-    assert_eq!(sut.sub_titles, "[ foo ] bar baz ".to_owned());
+    assert_eq!(&sut.sub_titles[..], "[ foo ] bar baz ");
     assert_eq!(sut.max_items, 3);
 }
 
@@ -26,7 +26,7 @@ fn update_sub_titles_with_back_simulation() {
     let mut sut = MenuPage::new(BasicPage::new("MyTitle", None), Some("Back"));
     sut.update(Some(Box::new(sub_titles.iter().map(|p| *p))))
         .unwrap();
-    assert_eq!(sut.sub_titles, "[ foo ] bar baz Back ".to_owned());
+    assert_eq!(&sut.sub_titles[..], "[ foo ] bar baz Back ");
     assert_eq!(sut.max_items, 4);
 }
 

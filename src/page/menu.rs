@@ -1,11 +1,12 @@
 use super::basic::BasicPage;
+use arrayvec::ArrayString;
 
 pub struct MenuPage<'a> {
     pub basic: BasicPage,
     selected: usize,
     max_items: usize,
-    pub sub_titles: String, // is public to be accessed from outside implementation of PageInterface trait
-    back: Option<&'a str>,  // the Back menu entry in language
+    pub sub_titles: ArrayString<100>, // is public to be accessed from outside implementation of PageInterface trait
+    back: Option<&'a str>,            // the Back menu entry in language
 }
 
 impl<'a> MenuPage<'a> {
@@ -14,7 +15,7 @@ impl<'a> MenuPage<'a> {
             basic,
             selected: 1,
             max_items: 1,
-            sub_titles: "".to_owned(),
+            sub_titles: ArrayString::<100>::new(),
             back,
         }
     }
@@ -65,7 +66,7 @@ impl PageBaseInterface for MenuPage<'_> {
     ) -> Result<PageNavigation, PageError> {
         if let Some(title_iterator) = title_of_subpages {
             self.max_items = 0;
-            self.sub_titles = "".to_owned();
+            self.sub_titles.clear();
 
             for title in title_iterator {
                 self.max_items += 1;

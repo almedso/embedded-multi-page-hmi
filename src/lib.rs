@@ -91,7 +91,9 @@
 
 // later on this should be a no_std to run on embedded - still we need a Box type
 // that is not available easily  on no_std
-//#![no_std]
+// #![no_std]
+// use heapless::pool::Box;
+// #![feature(alloc)]  // only works with nightly compiler versions
 // use alloc::boxed::Box;
 
 #![allow(clippy::type_complexity)]
