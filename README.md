@@ -66,9 +66,10 @@ Checkout [`DESIGN-NOTES.md`](DESIGN-NOTES.md) for design issues and design decis
 
 ### Future Work
 
-- Move to no-std
 - Update documentation
-- Check async/await alternative in example
 - Pages for selection input/ model update e.g. numbers, words, etc.
-- Provide examples on raspi with four-button epaper shield
-- Provide example on stmf32 with two-buttons and 16x2 alpha-num display
+  - Introduce generics for the settings type and injection/update (via Cell/rs)
+- Check async/await alternative in example
+  - Provide examples on raspi with four-button epaper shield
+- Move to no-std
+  - Provide example on stmf32 with two-buttons and 16x2 alpha-num display

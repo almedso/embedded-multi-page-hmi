@@ -2,6 +2,7 @@ use embedded_multi_page_hmi::{
     lifetime::PageLifetime,
     page::{
         basic::{BasicPage, ShutdownPage, StartupPage, TextPage},
+        enter_string::EnterStringPage,
         menu::MenuPage,
     },
     page_manager::PageManager,
@@ -165,6 +166,18 @@ impl PageInterface<TerminalDisplay<'_>> for TimePage {
     }
 }
 
+impl PageInterface<TerminalDisplay<'_>> for EnterStringPage {
+    fn display(&self, display_driver: &mut TerminalDisplay) {
+        let output = format!(
+            "{}: {} Action: {}",
+            self.title(),
+            self.buffer,
+            self.action_string()
+        );
+        display_driver.update(&output);
+    }
+}
+
 // ** Arbitrary functions **
 
 fn sleep_ms(millis: u64) {
@@ -215,6 +228,14 @@ fn main() {
 
     let config_one = TextPage::new(BasicPage::new("Config-1", None), "First config Page");
     m.register_sub(Box::new(config_one));
+
+    let set_number = EnterStringPage::new(
+        BasicPage::new("Set String", None),
+        "1234567890.-",
+        Some("<<"),
+        Some("Return"),
+    );
+    m.register(Box::new(set_number));
 
     // A submenu
     let sub_menu = MenuPage::new(BasicPage::new("Sub-Menu", None), None);
