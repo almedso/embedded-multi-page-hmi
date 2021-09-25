@@ -1,4 +1,5 @@
-use std::{cell::Cell, default::Default};
+use std::fmt::Debug;
+use std::{cell::Cell, default::Default, str::FromStr};
 
 /// A setting can be set and get
 ///
@@ -26,14 +27,22 @@ pub trait Setting {
     /// The set function does not require a `&mut self` parameter on purpose
     fn set(&self, value: Self::Item);
 
-    /// Get the value of the setting
+    /// Set the value of the setting obtained from string slice
+    ///
+    /// The set function does not require a `&mut self` parameter on purpose
+    fn set_string(&self, value: &str);
+
+    /// Get the value of the setting into a string slice
     fn get(&self) -> Self::Item;
 }
 
 #[derive(Default)]
 pub struct CellSetting<T>(Cell<T>);
 
-impl<T: Copy> Setting for CellSetting<T> {
+impl<T: Copy + FromStr> Setting for CellSetting<T>
+where
+    <T as FromStr>::Err: Debug,
+{
     type Item = T;
 
     fn set(&self, value: Self::Item) {
@@ -42,5 +51,10 @@ impl<T: Copy> Setting for CellSetting<T> {
 
     fn get(&self) -> Self::Item {
         self.0.get()
+    }
+
+    fn set_string(&self, value: &str) {
+        let v = T::from_str(value).unwrap();
+        self.0.set(v);
     }
 }

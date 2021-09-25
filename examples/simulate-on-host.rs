@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use embedded_multi_page_hmi::{
     lifetime::PageLifetime,
     page::{
@@ -6,11 +7,14 @@ use embedded_multi_page_hmi::{
         menu::MenuPage,
     },
     page_manager::PageManager,
+    setting::{CellSetting, Setting},
     Interaction, PageBaseInterface, PageInteractionInterface, PageInterface, PageNavigation,
 };
-
-use chrono::{DateTime, Utc};
 use pancurses::{endwin, initscr, noecho, Input, Window};
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 use std::{thread, time};
 
 /// h1. Showcase all capabilities on host via pancurses
@@ -166,7 +170,10 @@ impl PageInterface<TerminalDisplay<'_>> for TimePage {
     }
 }
 
-impl PageInterface<TerminalDisplay<'_>> for EnterStringPage {
+impl<T: Display + FromStr + Copy> PageInterface<TerminalDisplay<'_>> for EnterStringPage<'_, T>
+where
+    <T as FromStr>::Err: Debug,
+{
     fn display(&self, display_driver: &mut TerminalDisplay) {
         let output = format!(
             "{}: {} Action: {}",
@@ -186,6 +193,10 @@ fn sleep_ms(millis: u64) {
 }
 
 fn main() {
+    let config_value: CellSetting<f32> = Default::default();
+    config_value.set(3.14); // to have something different than 0.0
+    println!("Start with config value {}", config_value.get());
+
     // pancurses Initialization
     let window = initscr();
     window.printw("Type things, press delete to quit\n");
@@ -229,11 +240,13 @@ fn main() {
     let config_one = TextPage::new(BasicPage::new("Config-1", None), "First config Page");
     m.register_sub(Box::new(config_one));
 
+    // Allow to enter a string as a config
     let set_number = EnterStringPage::new(
         BasicPage::new("Set String", None),
         "1234567890.-",
         Some("<<"),
         Some("Return"),
+        &config_value,
     );
     m.register(Box::new(set_number));
 
@@ -251,6 +264,7 @@ fn main() {
     // Note: For proper system startup and shotdown handling navigation events
     // need to be injected again
     let mut navigation = m.dispatch(PageNavigation::SystemStart).unwrap();
+
     loop {
         let result = match input.next() {
             None => m.dispatch(navigation),
@@ -270,4 +284,6 @@ fn main() {
 
     // cleanup and tear down pancurses
     endwin();
+
+    println!("Finish with config value {}", config_value.get());
 }
