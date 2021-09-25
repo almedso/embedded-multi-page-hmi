@@ -205,6 +205,8 @@ use lifetime::PageLifetime;
 pub mod page;
 pub mod page_manager;
 
+pub mod setting;
+
 // reexport the PageManager
 #[allow(unused_imports)]
 pub use page_manager::PageManager;
