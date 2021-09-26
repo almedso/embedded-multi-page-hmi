@@ -67,9 +67,10 @@ Checkout [`DESIGN-NOTES.md`](DESIGN-NOTES.md) for design issues and design decis
 ### Future Work
 
 - Update documentation
-- Pages for selection input/ model update e.g. numbers, words, etc.
-  - Introduce generics for the settings type and injection/update (via Cell/rs)
+- Edit page for select 1 of many
+- Edit page for select multiple of many (list of binary flags)
 - Check async/await alternative in example
   - Provide examples on raspi with four-button epaper shield
 - Move to no-std
+  - Replacement for Box with trait objects e.g. RefCell? in page manager
   - Provide example on stmf32 with two-buttons and 16x2 alpha-num display
