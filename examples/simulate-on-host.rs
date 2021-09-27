@@ -1,14 +1,8 @@
 use chrono::{DateTime, Utc};
 use embedded_multi_page_hmi::{
-    lifetime::PageLifetime,
-    page::{
-        basic::{BasicPage, ShutdownPage, StartupPage, TextPage},
-        enter_string::EnterStringPage,
-        menu::MenuPage,
-    },
-    page_manager::PageManager,
-    setting::{CellSetting, Setting},
-    Interaction, PageBaseInterface, PageInteractionInterface, PageInterface, PageNavigation,
+    page::{BasicPage, EnterStringPage, MenuPage, ShutdownPage, StartupPage, TextPage},
+    CellSetting, Interaction, PageBaseInterface, PageInteractionInterface, PageInterface,
+    PageLifetime, PageManager, PageNavigation, Setting,
 };
 use pancurses::{endwin, initscr, noecho, Input, Window};
 use std::{

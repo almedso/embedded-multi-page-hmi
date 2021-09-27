@@ -200,14 +200,15 @@ pub trait PageInteractionInterface: PageBaseInterface {
 }
 
 pub mod lifetime;
-#[allow(unused_imports)]
-use lifetime::PageLifetime;
 
 pub mod page;
 pub mod page_manager;
-
 pub mod setting;
 
-// reexport the PageManager
+// Re-exports
+#[allow(unused_imports)]
+pub use lifetime::PageLifetime;
 #[allow(unused_imports)]
 pub use page_manager::PageManager;
+#[allow(unused_imports)]
+pub use setting::{CellSetting, Setting};
