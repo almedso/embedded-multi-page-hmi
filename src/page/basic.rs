@@ -3,7 +3,10 @@ use super::super::{
     PageNavigation,
 };
 
-/// A Basic page has at least a title and an optional lifetime
+/// A basic page has at least a title and an optional lifetime
+///
+/// A basic page can be used to construct other pages, since every pages
+/// is supposed to have a title and an optional lifetime.
 pub struct BasicPage {
     pub title: &'static str,
     pub lifetime: Option<PageLifetime>,
@@ -15,7 +18,7 @@ impl BasicPage {
     }
 }
 
-/// A text page holds a text and contains the behavior of a Basic page
+/// A text page holds a text as content and contains the behavior of a BasicPage
 pub struct TextPage {
     pub basic: BasicPage,
     pub text: &'static str,
@@ -55,7 +58,7 @@ impl PageBaseInterface for TextPage {
 
 impl PageInteractionInterface for TextPage {}
 
-/// A startup page
+/// A startup page - optionally shown before stopping the HMI
 ///
 /// * Is a text page with title "Startup"
 /// * Has a dedicated lifetime
@@ -111,7 +114,7 @@ impl PageInteractionInterface for StartupPage {
     }
 }
 
-/// A startup page
+/// A shutdown page - optionally shown before stopping the HMI
 ///
 /// * Is a text page with title "Shutdown"
 /// * Has a dedicated lifetime

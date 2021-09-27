@@ -1,6 +1,8 @@
-pub mod basic;
-pub mod enter_string;
-pub mod menu;
+//! Home of several general purpose page implementations
+
+mod basic;
+mod enter_string;
+mod menu;
 
 // Re-exports
 #[allow(unused_imports)]

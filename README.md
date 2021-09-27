@@ -66,7 +66,6 @@ Checkout [`DESIGN-NOTES.md`](DESIGN-NOTES.md) for design issues and design decis
 
 ### Future Work
 
-- Update documentation
 - Edit page for select 1 of many
 - Edit page for select multiple of many (list of binary flags)
 - Check async/await alternative in example

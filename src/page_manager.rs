@@ -1,3 +1,6 @@
+use super::*;
+use core::mem;
+
 /// The PageManager is responsible for switching among pages while
 /// pages do not know about other pages.
 /// The PageManager also dispatches events and updates the current page.
@@ -6,6 +9,38 @@
 /// Startup and Shutdown pages are purely information pages and not
 /// activated only by SystemStartup and SystemShutdown events.
 ///
+/// h2. Example
+///
+/// ```ignore
+/// let mut input = SomeInput(); // artificial code
+/// let display = SomeDisplay::new(); // artificial code
+/// let home = HomePage::new("!!! This is the home page !!!");
+///
+/// let mut m = PageManager::new(display, Box::new(home));
+/// // Optional startup page has a mandatory lifetime.
+/// let startup = StartupPage::new("Welcome message", 8);
+/// m.register_startup(Box::new(startup));
+/// // Optional Shutdown page has a mandatory lifetime.
+/// let shutdown = ShutdownPage::new("Bye bye message", 10);
+/// m.register_shutdown(Box::new(shutdown));
+/// // Additional pages reachable by next button
+/// // A predefined Information text page with lifetime
+/// let page_one = TextPage::new(
+///     BasicPage::new("First", Some(PageLifetime::new(PageNavigation::Left, 6))),
+///     "First Information Page with 3 seconds lifetime; moving to next page",
+/// );
+/// m.register(Box::new(page_one));
+///
+/// // Enter the event loop
+/// let mut navigation = m.dispatch(PageNavigation::SystemStart).unwrap();
+/// loop {
+///     match input.next() {
+///          None => m.dispatch(navigation),
+///          Some(interaction) => m.dispatch_interaction(interaction),
+///      }
+/// }
+/// ```
+
 // h2. Implementation Note
 //
 // There is only one page active at a time, that dispatches events
@@ -29,10 +64,6 @@
 // * `b, c` - are pages on the same level like `a` reachable via right link of `a`
 // * `d, e, f`- are sub-pages of `a` reachable via down link of `a`
 //
-use core::mem;
-
-use super::*;
-
 pub struct PageManager<'a, D> {
     display: D,
     page: Box<dyn PageInterface<D> + 'a>,

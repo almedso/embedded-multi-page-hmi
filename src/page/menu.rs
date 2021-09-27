@@ -1,6 +1,10 @@
 use super::basic::BasicPage;
 use arrayvec::ArrayString;
 
+/// A menu page organizes navigation to sub pages
+///
+/// A menu pages lists the titles of the sub-pages and allows
+/// navigation to a specific sub-page
 pub struct MenuPage<'a> {
     pub basic: BasicPage,
     selected: usize,

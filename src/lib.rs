@@ -136,17 +136,6 @@ pub enum PageNavigation {
     Home,
 }
 
-/// Map default 5-button interaction to navigation
-pub fn map_interaction_to_navigation(interaction: Interaction) -> PageNavigation {
-    match interaction {
-        Interaction::Action => PageNavigation::Update,
-        Interaction::Back => PageNavigation::Up,
-        Interaction::Home => PageNavigation::Home,
-        Interaction::Next => PageNavigation::Left,
-        Interaction::Previous => PageNavigation::Right,
-    }
-}
-
 /// Any error a page update my run into
 #[derive(Debug, Clone)]
 pub struct PageError;
@@ -192,18 +181,36 @@ pub trait PageBaseInterface {
     }
 }
 
+/// A page is responsible to implement user interaction
+///
+/// User interaction can lead to page content modification or to a navigation to
+/// another page.
 pub trait PageInteractionInterface: PageBaseInterface {
     /// Handle page interaction
+    ///
+    /// Args:
+    ///
+    /// * `interaction` - One of the user interactions
+    ///
+    /// Returns:
+    ///
+    /// * `PageNavigation` - Advice to the page manager of where to navigate to.
+    ///   If PageNavigation::Update is returned, no navigation is processed.
     fn dispatch(&mut self, interaction: Interaction) -> PageNavigation {
-        map_interaction_to_navigation(interaction)
+        match interaction {
+            Interaction::Action => PageNavigation::Update,
+            Interaction::Back => PageNavigation::Up,
+            Interaction::Home => PageNavigation::Home,
+            Interaction::Next => PageNavigation::Left,
+            Interaction::Previous => PageNavigation::Right,
+        }
     }
 }
 
-pub mod lifetime;
-
+mod lifetime;
 pub mod page;
-pub mod page_manager;
-pub mod setting;
+mod page_manager;
+mod setting;
 
 // Re-exports
 #[allow(unused_imports)]
