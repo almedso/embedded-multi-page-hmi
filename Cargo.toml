@@ -1,6 +1,6 @@
 [package]
 name = "embedded-multi-page-hmi"
-version = "0.2.0"
+version = "0.3.0"
 
 description = "Multi page HMI targetting embedded devices with a few of buttons input and a constrainted display"
 authors = ["Volker Kempert <volker.kempert@almedso.de>"]
