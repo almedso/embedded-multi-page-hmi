@@ -68,8 +68,7 @@ Checkout [`DESIGN-NOTES.md`](DESIGN-NOTES.md) for design issues and design decis
 
 - Edit page for select 1 of many
 - Edit page for select multiple of many (list of binary flags)
-- Check async/await alternative in example
-  - Provide examples on raspi with four-button epaper shield
+- Provide examples on raspi with four-button epaper shield
 - Move to no-std
   - Replacement for Box with trait objects e.g. RefCell? in page manager
   - Provide example on stmf32 with two-buttons and 16x2 alpha-num display

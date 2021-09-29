@@ -153,7 +153,7 @@ where
             Interaction::Home => {
                 self.value.set_string(&self.buffer[..]);
                 PageNavigation::Up
-            },
+            }
             Interaction::Next => {
                 self.current_char += 1;
                 if self.current_char >= self.max_chars {
