@@ -1,9 +1,18 @@
 name: Publish
 
+# Only publish tagged commits of certain branches
+#
+# Policy is:
+# - trunk based development
+#   - i.e. only master gets pushed
+#   - other branches are for CI qualification prior to rebasing to master
+# - tags are only created with cargo bump -g <major|minor|patch> -> so any tags get pushed
 on:
   push:
     branches:
       - master
+    tags:
+      - "*"
 
 jobs:
   publish:
