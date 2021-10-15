@@ -76,6 +76,8 @@ pub struct PageManager<'a, D> {
     state: PageManagerState,
 }
 
+unsafe impl<D> Send for PageManager<'_, D> {}
+
 type Link<T> = Option<Box<Node<T>>>;
 
 struct Node<T> {
