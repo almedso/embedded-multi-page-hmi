@@ -1,5 +1,7 @@
 use super::*;
 use core::mem;
+use core::cell::RefCell;
+use core::rc::Rc;
 
 /// The PageManager is responsible for switching among pages while
 /// pages do not know about other pages.
@@ -60,19 +62,19 @@ use core::mem;
 //  |     |     |
 //  g-h-i j-k-l m-n
 // ```
-// * `a`- is root page
+// * `a`- is root page (empty left node and empty up node)
 // * `b, c` - are pages on the same level like `a` reachable via right link of `a`
 // * `d, e, f`- are sub-pages of `a` reachable via down link of `a`
 //
 pub struct PageManager<'a, D> {
     display: D,
-    page: Box<dyn PageInterface<D> + 'a>,
-    left: Link<Box<dyn PageInterface<D> + 'a>>,
-    right: Link<Box<dyn PageInterface<D> + 'a>>,
-    up: Link<Box<dyn PageInterface<D> + 'a>>,
-    down: Link<Box<dyn PageInterface<D> + 'a>>,
-    startup: Option<Box<dyn PageInterface<D> + 'a>>,
-    shutdown: Option<Box<dyn PageInterface<D> + 'a>>,
+    page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+    left: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+    right: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+    up: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+    down: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+    startup: Option<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+    shutdown: Option<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     state: PageManagerState,
 }
 
@@ -104,7 +106,7 @@ impl<'a, D> PageManager<'a, D> {
     ///   output appear on some output facility viewable by a human.
     /// * `home`: The "home" page. There must be at least one page. Other pages
     ///    are added by register_* calls.
-    pub fn new(display: D, home: Box<dyn PageInterface<D> + 'a>) -> Self {
+    pub fn new(display: D, home: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>) -> Self {
         PageManager::<D> {
             display,
             page: home,
@@ -146,7 +148,7 @@ impl<'a, D> PageManager<'a, D> {
     /// Arguments
     ///
     /// * `page` - The page to be registered and activated.
-    pub fn register(&mut self, page: Box<dyn PageInterface<D> + 'a>) {
+    pub fn register(&mut self, page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>) {
         self.push_left(page, None, None);
         self.activate_left();
     }
@@ -159,7 +161,7 @@ impl<'a, D> PageManager<'a, D> {
     /// Arguments
     ///
     /// * `page`: - The page to be registered and activated.
-    pub fn register_sub(&mut self, page: Box<dyn PageInterface<D> + 'a>) {
+    pub fn register_sub(&mut self, page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>) {
         self.push_down(page, None, None);
         self.activate_down();
     }
@@ -172,7 +174,7 @@ impl<'a, D> PageManager<'a, D> {
     /// Arguments
     ///
     /// * `page`: - The page that should serve for startup.
-    pub fn register_startup(&mut self, page: Box<dyn PageInterface<D> + 'a>) {
+    pub fn register_startup(&mut self, page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>) {
         self.startup = Some(page);
     }
 
@@ -184,15 +186,15 @@ impl<'a, D> PageManager<'a, D> {
     /// Arguments
     ///
     /// * `page`: - The page that should serve for startup.
-    pub fn register_shutdown(&mut self, page: Box<dyn PageInterface<D> + 'a>) {
+    pub fn register_shutdown(&mut self, page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>) {
         self.shutdown = Some(page);
     }
 
     fn push_left(
         &mut self,
-        page: Box<dyn PageInterface<D> + 'a>,
-        up: Link<Box<dyn PageInterface<D> + 'a>>,
-        down: Link<Box<dyn PageInterface<D> + 'a>>,
+        page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        up: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        down: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     ) {
         let new_node = Box::new(Node {
             page,
@@ -206,9 +208,9 @@ impl<'a, D> PageManager<'a, D> {
 
     fn push_right(
         &mut self,
-        page: Box<dyn PageInterface<D> + 'a>,
-        up: Link<Box<dyn PageInterface<D> + 'a>>,
-        down: Link<Box<dyn PageInterface<D> + 'a>>,
+        page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        up: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        down: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     ) {
         let new_node = Box::new(Node {
             page,
@@ -223,9 +225,9 @@ impl<'a, D> PageManager<'a, D> {
     fn pop_left(
         &mut self,
     ) -> Option<(
-        Box<dyn PageInterface<D> + 'a>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
+        Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     )> {
         self.left.take().map(|node| {
             let mut node = node;
@@ -237,9 +239,9 @@ impl<'a, D> PageManager<'a, D> {
     fn pop_right(
         &mut self,
     ) -> Option<(
-        Box<dyn PageInterface<D> + 'a>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
+        Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     )> {
         self.right.take().map(|node| {
             let mut node = node;
@@ -288,9 +290,9 @@ impl<'a, D> PageManager<'a, D> {
 
     fn push_down(
         &mut self,
-        page: Box<dyn PageInterface<D> + 'a>,
-        left: Link<Box<dyn PageInterface<D> + 'a>>,
-        right: Link<Box<dyn PageInterface<D> + 'a>>,
+        page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        left: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        right: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     ) {
         let new_node = Box::new(Node {
             page,
@@ -304,9 +306,9 @@ impl<'a, D> PageManager<'a, D> {
 
     fn push_up(
         &mut self,
-        page: Box<dyn PageInterface<D> + 'a>,
-        left: Link<Box<dyn PageInterface<D> + 'a>>,
-        right: Link<Box<dyn PageInterface<D> + 'a>>,
+        page: Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        left: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        right: Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     ) {
         let new_node = Box::new(Node {
             page,
@@ -321,9 +323,9 @@ impl<'a, D> PageManager<'a, D> {
     fn pop_down(
         &mut self,
     ) -> Option<(
-        Box<dyn PageInterface<D> + 'a>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
+        Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     )> {
         self.down.take().map(|node| {
             let mut node = node;
@@ -335,9 +337,9 @@ impl<'a, D> PageManager<'a, D> {
     fn pop_up(
         &mut self,
     ) -> Option<(
-        Box<dyn PageInterface<D> + 'a>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
-        Link<Box<dyn PageInterface<D> + 'a>>,
+        Rc<dyn RefCell<dyn PageInterface<D>> + 'a>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
+        Link<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>>,
     )> {
         self.up.take().map(|node| {
             let mut node = node;
@@ -507,15 +509,15 @@ pub struct SubPageIterator<'a, P> {
 }
 
 impl<'a, D> PageManager<'a, D> {
-    pub fn sub_iter(&self) -> SubPageIterator<Box<dyn PageInterface<D> + 'a>> {
+    pub fn sub_iter(&self) -> SubPageIterator<Rc<dyn RefCell<dyn PageInterface<D>> + 'a>> {
         SubPageIterator {
             left: self.down.as_deref(),
         }
     }
 }
 
-impl<'a, D> Iterator for SubPageIterator<'a, Box<dyn PageInterface<D> + 'a>> {
-    type Item = &'a Box<dyn PageInterface<D> + 'a>;
+impl<'a, D> Iterator for SubPageIterator<'a, Rc<dyn RefCell<dyn PageInterface<D>> + 'a>> {
+    type Item = &'a Rc<dyn RefCell<dyn PageInterface<D>> + 'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.left.map(|node| {
             self.left = node.left.as_deref();
